@@ -21,28 +21,37 @@ public partial class UpdateDownloadWindow : Window
         _updateInfo = updateInfo;
         StatusText.Text = $"Downloading Rotation Analysis Lab {updateInfo.Version}…";
         Loaded += UpdateDownloadWindow_Loaded;
+        Closing += (_, _) => _cts.Cancel();
     }
 
     private async void UpdateDownloadWindow_Loaded(object sender, RoutedEventArgs e)
     {
         var progress = new Progress<double>(p => ProgressBarControl.Value = p * 100);
-        var destinationPath = Path.Combine(Path.GetTempPath(), _updateInfo.InstallerFileName);
+        // Strip any directory components from the asset name to prevent path traversal.
+        var safeFileName = Path.GetFileName(_updateInfo.InstallerFileName);
+        var destinationPath = Path.Combine(Path.GetTempPath(), safeFileName);
 
         try
         {
             await _updateChecker.DownloadInstallerAsync(_updateInfo.InstallerDownloadUrl, destinationPath, progress, _cts.Token);
             InstallerPath = destinationPath;
-            DialogResult = true;
+            if (IsVisible) DialogResult = true;
         }
         catch (OperationCanceledException)
         {
-            DialogResult = false;
+            TryDeleteFile(destinationPath);
+            if (IsVisible) DialogResult = false;
         }
         catch (Exception ex)
         {
+            TryDeleteFile(destinationPath);
             AppLog.LogError("DownloadUpdate", ex);
             FailureMessage = ex.Message;
-            DialogResult = false;
+            if (IsVisible) DialogResult = false;
+        }
+        finally
+        {
+            _cts.Dispose();
         }
     }
 
@@ -50,5 +59,10 @@ public partial class UpdateDownloadWindow : Window
     {
         _cts.Cancel();
         StatusText.Text = "Cancelling…";
+    }
+
+    private static void TryDeleteFile(string path)
+    {
+        try { File.Delete(path); } catch { }
     }
 }
