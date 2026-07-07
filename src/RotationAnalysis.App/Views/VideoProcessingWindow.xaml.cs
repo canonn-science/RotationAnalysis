@@ -40,8 +40,11 @@ public partial class VideoProcessingWindow : Window
 
         var progress = new Progress<VideoAnalysisProgress>(p =>
         {
-            _realProgressReceived = true;
-            ProgressBarControl.IsIndeterminate = false;
+            if (!_realProgressReceived)
+            {
+                _realProgressReceived = true;
+                ProgressBarControl.IsIndeterminate = false;
+            }
             ProgressBarControl.Value = p.PercentComplete;
             StatusText.Text = p.Message;
             FrameCounterText.Text = p.TotalFrames > 0 ? $"Frame {p.FramesProcessed} of {p.TotalFrames}" : string.Empty;
