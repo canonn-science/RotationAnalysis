@@ -9,6 +9,9 @@
     <Grid Background="Black">
         <Image x:Name="CurrentFrameImage" Stretch="Uniform"/>
 
+        <ui:ProgressRing x:Name="LoadingRing" Width="64" Height="64" IsActive="True"
+                          Foreground="{StaticResource CanonnAccentBrush}"/>
+
         <!-- Overlay panel across the bottom portion of the frame -->
         <Border VerticalAlignment="Bottom" Background="#CC1C1C1C" Padding="20,14">
             <Grid>
@@ -34,7 +37,7 @@
                 </StackPanel>
 
                 <ProgressBar x:Name="ProgressBarControl" Grid.Row="1" Margin="0,10,0,0" Height="8" Minimum="0" Maximum="100"
-                             Foreground="{StaticResource CanonnAccentBrush}"/>
+                             IsIndeterminate="True" Foreground="{StaticResource CanonnAccentBrush}"/>
 
                 <Button Grid.Row="2" Content="Cancel" HorizontalAlignment="Right" Margin="0,14,0,0" Padding="16,8"
                         Click="CancelButton_Click"/>
