@@ -1,6 +1,7 @@
 using System.Diagnostics;
 using System.Reflection;
 using System.Windows;
+using System.Windows.Navigation;
 using ModernWpf.Controls;
 using RotationAnalysis.App.ViewModels;
 using RotationAnalysis.Core.Diagnostics;
@@ -28,6 +29,15 @@ public partial class MainWindow : Window
             _updateChecker.Dispose();
         };
         Loaded += async (_, _) => await CheckForUpdatesAsync();
+        VersionText.Text = $"Version v{GetCurrentVersion().ToString(3)}";
+    }
+
+    private static Version GetCurrentVersion() => Assembly.GetExecutingAssembly().GetName().Version ?? new Version(0, 0, 0);
+
+    private void Hyperlink_RequestNavigate(object sender, RequestNavigateEventArgs e)
+    {
+        Process.Start(new ProcessStartInfo(e.Uri.AbsoluteUri) { UseShellExecute = true });
+        e.Handled = true;
     }
 
     private async Task CheckForUpdatesAsync()
@@ -35,8 +45,7 @@ public partial class MainWindow : Window
         UpdateInfo? update;
         try
         {
-            var currentVersion = Assembly.GetExecutingAssembly().GetName().Version ?? new Version(0, 0, 0);
-            update = await _updateChecker.CheckForUpdateAsync(UpdateRepoOwner, UpdateRepoName, currentVersion);
+            update = await _updateChecker.CheckForUpdateAsync(UpdateRepoOwner, UpdateRepoName, GetCurrentVersion());
         }
         catch (Exception ex)
         {
