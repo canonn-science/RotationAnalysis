@@ -140,6 +140,42 @@
                     </DataGrid>
                 </Grid>
             </TabItem>
+
+            <TabItem Header="About">
+                <Grid Margin="12">
+                    <StackPanel MaxWidth="640" HorizontalAlignment="Left">
+                        <StackPanel Orientation="Horizontal">
+                            <Image Source="/Assets/canonn_logo.png" Height="56" Stretch="Uniform" Margin="0,0,16,0"/>
+                            <StackPanel VerticalAlignment="Center">
+                                <TextBlock Text="Rotation Analysis Lab" FontSize="22" FontWeight="Bold"
+                                           Foreground="{StaticResource CanonnTextBrightBrush}"/>
+                                <TextBlock x:Name="VersionText" FontSize="13"
+                                           Foreground="{StaticResource CanonnTextMutedBrush}" Margin="0,2,0,0"/>
+                            </StackPanel>
+                        </StackPanel>
+
+                        <TextBlock Margin="0,20,0,0" TextWrapping="Wrap" LineHeight="20"
+                                   Foreground="{StaticResource CanonnTextBrush}"
+                                   Text="Rotation Analysis Lab measures how fast a planetary ring or asteroid belt is rotating in Elite Dangerous. It estimates the rotation period from orbital mechanics, tells you how long a video to record to confirm it, and then measures the actual period from that recording - producing a logged data point for Canonn's citizen-science ring-rotation project."/>
+
+                        <StackPanel Orientation="Horizontal" Margin="0,20,0,0">
+                            <TextBlock Text="Project home: " FontWeight="SemiBold"
+                                       Foreground="{StaticResource CanonnTextBrightBrush}"/>
+                            <TextBlock>
+                                <Hyperlink NavigateUri="https://canonn.science/" RequestNavigate="Hyperlink_RequestNavigate">canonn.science</Hyperlink>
+                            </TextBlock>
+                        </StackPanel>
+
+                        <StackPanel Orientation="Horizontal" Margin="0,8,0,0">
+                            <TextBlock Text="Source &amp; releases: " FontWeight="SemiBold"
+                                       Foreground="{StaticResource CanonnTextBrightBrush}"/>
+                            <TextBlock>
+                                <Hyperlink NavigateUri="https://github.com/canonn-science/RotationAnalysis" RequestNavigate="Hyperlink_RequestNavigate">github.com/canonn-science/RotationAnalysis</Hyperlink>
+                            </TextBlock>
+                        </StackPanel>
+                    </StackPanel>
+                </Grid>
+            </TabItem>
         </TabControl>
     </Grid>
 </Window>
