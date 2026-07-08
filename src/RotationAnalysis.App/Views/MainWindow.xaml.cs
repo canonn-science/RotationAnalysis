@@ -4,6 +4,7 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Navigation;
 using ModernWpf.Controls;
+using RotationAnalysis.App.Infrastructure;
 using RotationAnalysis.App.ViewModels;
 using RotationAnalysis.Core.Diagnostics;
 using RotationAnalysis.Core.Updates;
@@ -172,7 +173,11 @@ public partial class MainWindow : Window
             return;
         }
 
-        var processingWindow = new VideoProcessingWindow(_viewModel, videoPath, row.Ring.EstimatedPeriodSeconds, row.Ring.RingName) { Owner = this };
+        // Kick this off now rather than waiting for VideoProcessingWindow's Loaded event, so the
+        // shell round-trip overlaps window construction/layout instead of starting after it.
+        var quickMetadataTask = Task.Run(() => QuickVideoMetadataReader.Read(videoPath));
+
+        var processingWindow = new VideoProcessingWindow(_viewModel, videoPath, row.Ring.EstimatedPeriodSeconds, quickMetadataTask, row.Ring.RingName) { Owner = this };
         var completed = processingWindow.ShowDialog();
 
         if (completed == true && processingWindow.Result is not null)
