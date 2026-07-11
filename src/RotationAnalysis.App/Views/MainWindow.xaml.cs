@@ -21,6 +21,7 @@ public partial class MainWindow : Window
     private CancellationTokenSource? _searchDebounceCts;
     private CancellationTokenSource? _stationSearchDebounceCts;
     private CancellationTokenSource? _jetConeSearchDebounceCts;
+    private CancellationTokenSource? _longExposureSearchDebounceCts;
 
     public MainWindow()
     {
@@ -30,6 +31,7 @@ public partial class MainWindow : Window
         _viewModel.Measurements.SubmissionFailed += OnCanonnSubmissionFailed;
         _viewModel.Stations.VideoSelectionRequested += OnStationVideoSelectionRequested;
         _viewModel.JetCone.VideoSelectionRequested += OnJetConeVideoSelectionRequested;
+        _viewModel.LongExposure.VideoSelectionRequested += OnLongExposureVideoSelectionRequested;
         Closed += (_, _) =>
         {
             _viewModel.Dispose();
@@ -451,5 +453,73 @@ public partial class MainWindow : Window
                 UpdateClaudeApiKeyStatusText();
             }
         }
+    }
+
+    private async void LongExposureSystemSearchBox_TextChanged(AutoSuggestBox sender, AutoSuggestBoxTextChangedEventArgs args)
+    {
+        if (args.Reason != AutoSuggestionBoxTextChangeReason.UserInput)
+        {
+            return;
+        }
+
+        _longExposureSearchDebounceCts?.Cancel();
+        var cts = new CancellationTokenSource();
+        _longExposureSearchDebounceCts = cts;
+
+        try
+        {
+            await Task.Delay(300, cts.Token);
+            await _viewModel.LongExposure.RefreshSuggestionsAsync(sender.Text, cts.Token);
+        }
+        catch (OperationCanceledException)
+        {
+            // superseded by a newer keystroke
+        }
+    }
+
+    private async void LongExposureSystemSearchBox_SuggestionChosen(AutoSuggestBox sender, AutoSuggestBoxSuggestionChosenEventArgs args)
+    {
+        if (args.SelectedItem is Core.Spansh.Models.SpanshSearchSystem system)
+        {
+            await _viewModel.LongExposure.SubmitAsync(system);
+        }
+    }
+
+    private async void LongExposureSystemSearchBox_QuerySubmitted(AutoSuggestBox sender, AutoSuggestBoxQuerySubmittedEventArgs args)
+    {
+        var chosen = args.ChosenSuggestion as Core.Spansh.Models.SpanshSearchSystem;
+        await _viewModel.LongExposure.SubmitAsync(chosen);
+    }
+
+    private async void LongExposureSubmitButton_Click(object sender, RoutedEventArgs e)
+    {
+        await _viewModel.LongExposure.SubmitAsync(null);
+    }
+
+    private async void OnLongExposureVideoSelectionRequested(LongExposureRowViewModel row)
+    {
+        var promptWindow = new VideoUploadPromptWindow { Owner = this };
+        if (promptWindow.ShowDialog() != true || promptWindow.SelectedFilePath is not string videoPath)
+        {
+            return;
+        }
+
+        var processingWindow = new LongExposureProcessingWindow(_viewModel.LongExposure.GenerateAsync, videoPath) { Owner = this };
+        if (processingWindow.ShowDialog() != true || processingWindow.Result is not { } result)
+        {
+            if (processingWindow.FailureMessage is not null)
+            {
+                await new ContentDialog
+                {
+                    Title = "Long exposure generation failed",
+                    Content = processingWindow.FailureMessage,
+                    CloseButtonText = "OK",
+                }.ShowAsync();
+            }
+            return;
+        }
+
+        var resultsWindow = new LongExposureResultsWindow(result, row.Target.SystemName, row.Target.ObjectName) { Owner = this };
+        resultsWindow.ShowDialog();
     }
 }
