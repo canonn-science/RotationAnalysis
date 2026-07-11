@@ -4,8 +4,11 @@ using RotationAnalysis.Core.VideoAnalysis.SlitScan;
 
 namespace RotationAnalysis.App.Views;
 
-/// <summary>Compact parameter panel for Slit Scan - deliberately simple sliders/dropdowns rather
-/// than a wizard, per spec ("simple but enough for creative experimentation").</summary>
+/// <summary>Compact parameter panel for Slit Scan - deliberately built from standard
+/// sliders/dropdowns (no custom canvas controls) per a simplified scope: Static/Sweep/Rotational
+/// motion, optional width animation, sampling order, In/Out trim, and independent output sizing.
+/// Freeform path motion, audio-reactivity, and a separate scrub-preview renderer are out of scope
+/// for this pass.</summary>
 public partial class SlitScanParametersWindow : Window
 {
     public SlitScanParameters? Parameters { get; private set; }
@@ -23,6 +26,14 @@ public partial class SlitScanParametersWindow : Window
         }
     }
 
+    private void SlitPositionSlider_ValueChanged(object sender, RoutedPropertyChangedEventArgs<double> e)
+    {
+        if (SlitPositionValueText is not null)
+        {
+            SlitPositionValueText.Text = $"{e.NewValue:0}%";
+        }
+    }
+
     private void SlitWidthSlider_ValueChanged(object sender, RoutedPropertyChangedEventArgs<double> e)
     {
         if (SlitWidthValueText is not null)
@@ -31,11 +42,122 @@ public partial class SlitScanParametersWindow : Window
         }
     }
 
-    private void SlitPositionSlider_ValueChanged(object sender, RoutedPropertyChangedEventArgs<double> e)
+    private void AnimateWidthCheckBox_CheckedChanged(object sender, RoutedEventArgs e)
     {
-        if (SlitPositionValueText is not null)
+        if (WidthAnimationPanel is not null)
         {
-            SlitPositionValueText.Text = $"{e.NewValue:0}%";
+            WidthAnimationPanel.Visibility = AnimateWidthCheckBox.IsChecked == true ? Visibility.Visible : Visibility.Collapsed;
+        }
+    }
+
+    private void SlitWidthEndSlider_ValueChanged(object sender, RoutedPropertyChangedEventArgs<double> e)
+    {
+        if (SlitWidthEndValueText is not null)
+        {
+            SlitWidthEndValueText.Text = $"{e.NewValue:0} px";
+        }
+    }
+
+    private void MotionModeCombo_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (SweepPanel is null || RotationalPanel is null)
+        {
+            return; // fires once during InitializeComponent, before the rest of the tree exists
+        }
+
+        var tag = (MotionModeCombo.SelectedItem as ComboBoxItem)?.Tag as string;
+        SweepPanel.Visibility = tag == "Sweep" ? Visibility.Visible : Visibility.Collapsed;
+        RotationalPanel.Visibility = tag == "Rotational" ? Visibility.Visible : Visibility.Collapsed;
+
+        // Position doesn't apply to Rotational (which has its own Center/Radius controls).
+        if (SlitPositionSlider is not null)
+        {
+            SlitPositionSlider.IsEnabled = tag != "Rotational";
+        }
+    }
+
+    private void SweepEndSlider_ValueChanged(object sender, RoutedPropertyChangedEventArgs<double> e)
+    {
+        if (SweepEndValueText is not null)
+        {
+            SweepEndValueText.Text = $"{e.NewValue:0}%";
+        }
+    }
+
+    private void RotationCenterXSlider_ValueChanged(object sender, RoutedPropertyChangedEventArgs<double> e)
+    {
+        if (RotationCenterXValueText is not null)
+        {
+            RotationCenterXValueText.Text = $"{e.NewValue:0}%";
+        }
+    }
+
+    private void RotationCenterYSlider_ValueChanged(object sender, RoutedPropertyChangedEventArgs<double> e)
+    {
+        if (RotationCenterYValueText is not null)
+        {
+            RotationCenterYValueText.Text = $"{e.NewValue:0}%";
+        }
+    }
+
+    private void RotationRadiusSlider_ValueChanged(object sender, RoutedPropertyChangedEventArgs<double> e)
+    {
+        if (RotationRadiusValueText is not null)
+        {
+            RotationRadiusValueText.Text = $"{e.NewValue:0}%";
+        }
+    }
+
+    private void RotationRevolutionsSlider_ValueChanged(object sender, RoutedPropertyChangedEventArgs<double> e)
+    {
+        if (RotationRevolutionsValueText is not null)
+        {
+            RotationRevolutionsValueText.Text = $"{e.NewValue:0.0}";
+        }
+    }
+
+    private void SamplingOrderCombo_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (RandomSeedPanel is null)
+        {
+            return;
+        }
+
+        var tag = (SamplingOrderCombo.SelectedItem as ComboBoxItem)?.Tag as string;
+        RandomSeedPanel.Visibility = tag == "Random" ? Visibility.Visible : Visibility.Collapsed;
+    }
+
+    private void FrameIntervalSlider_ValueChanged(object sender, RoutedPropertyChangedEventArgs<double> e)
+    {
+        if (FrameIntervalValueText is not null)
+        {
+            FrameIntervalValueText.Text = e.NewValue <= 1 ? "every frame" : $"every {e.NewValue:0} frames";
+        }
+    }
+
+    private void InPointSlider_ValueChanged(object sender, RoutedPropertyChangedEventArgs<double> e)
+    {
+        if (InPointValueText is null)
+        {
+            return;
+        }
+        InPointValueText.Text = $"{e.NewValue:0}%";
+        if (OutPointSlider is not null && OutPointSlider.Value <= e.NewValue)
+        {
+            OutPointSlider.Value = Math.Min(e.NewValue + 1, OutPointSlider.Maximum);
+        }
+    }
+
+    private void OutPointSlider_ValueChanged(object sender, RoutedPropertyChangedEventArgs<double> e)
+    {
+        if (OutPointValueText is null)
+        {
+            return;
+        }
+        OutPointValueText.Text = $"{e.NewValue:0}%";
+        if (InPointSlider is not null && InPointSlider.Value >= e.NewValue)
+        {
+            InPointSlider.Value = Math.Max(e.NewValue - 1, InPointSlider.Minimum);
         }
     }
 
@@ -47,25 +169,17 @@ public partial class SlitScanParametersWindow : Window
         }
     }
 
-    private void FrameIntervalSlider_ValueChanged(object sender, RoutedPropertyChangedEventArgs<double> e)
+    private void CustomOutputSizeCheckBox_CheckedChanged(object sender, RoutedEventArgs e)
     {
-        if (FrameIntervalValueText is not null)
+        if (OutputSizePanel is not null)
         {
-            FrameIntervalValueText.Text = e.NewValue <= 1 ? "every frame" : $"every {e.NewValue:0} frames";
-        }
-    }
-
-    private void LimitWidthCheckBox_CheckedChanged(object sender, RoutedEventArgs e)
-    {
-        if (MaxWidthTextBox is not null)
-        {
-            MaxWidthTextBox.IsEnabled = LimitWidthCheckBox.IsChecked == true;
+            OutputSizePanel.Visibility = CustomOutputSizeCheckBox.IsChecked == true ? Visibility.Visible : Visibility.Collapsed;
         }
     }
 
     private void MotionDirectionCombo_SelectionChanged(object sender, SelectionChangedEventArgs e)
     {
-        if (SlitAngleSlider is null || ScanDirectionCombo is null)
+        if (SlitAngleSlider is null || SamplingOrderCombo is null)
         {
             return; // fires once during InitializeComponent, before the rest of the tree exists
         }
@@ -75,19 +189,19 @@ public partial class SlitScanParametersWindow : Window
         {
             case "LeftToRight":
                 SlitAngleSlider.Value = 90;
-                SelectComboTag(ScanDirectionCombo, "Forward");
+                SelectComboTag(SamplingOrderCombo, "Forward");
                 break;
             case "RightToLeft":
                 SlitAngleSlider.Value = 90;
-                SelectComboTag(ScanDirectionCombo, "Reverse");
+                SelectComboTag(SamplingOrderCombo, "Reverse");
                 break;
             case "TopToBottom":
                 SlitAngleSlider.Value = 0;
-                SelectComboTag(ScanDirectionCombo, "Forward");
+                SelectComboTag(SamplingOrderCombo, "Forward");
                 break;
             case "BottomToTop":
                 SlitAngleSlider.Value = 0;
-                SelectComboTag(ScanDirectionCombo, "Reverse");
+                SelectComboTag(SamplingOrderCombo, "Reverse");
                 break;
         }
     }
@@ -104,35 +218,93 @@ public partial class SlitScanParametersWindow : Window
         }
     }
 
+    private static SlitScanEasing ParseEasing(ComboBox combo) => ((combo.SelectedItem as ComboBoxItem)?.Tag as string) switch
+    {
+        "EaseIn" => SlitScanEasing.EaseIn,
+        "EaseOut" => SlitScanEasing.EaseOut,
+        "EaseInOut" => SlitScanEasing.EaseInOut,
+        _ => SlitScanEasing.Linear,
+    };
+
     private void GenerateButton_Click(object sender, RoutedEventArgs e)
     {
-        int? maxWidth = null;
-        if (LimitWidthCheckBox.IsChecked == true)
+        int? outputWidth = null;
+        int? outputHeight = null;
+        if (CustomOutputSizeCheckBox.IsChecked == true)
         {
-            if (!int.TryParse(MaxWidthTextBox.Text.Trim(), out var parsed) || parsed < 10)
+            if (!int.TryParse(OutputWidthTextBox.Text.Trim(), out var width) || width < 10
+                || !int.TryParse(OutputHeightTextBox.Text.Trim(), out var height) || height < 10)
             {
-                MessageBox.Show(this, "Enter a valid maximum width (at least 10 pixels).", "Invalid value", MessageBoxButton.OK, MessageBoxImage.Warning);
+                MessageBox.Show(this, "Enter valid output dimensions (at least 10 pixels each).", "Invalid value", MessageBoxButton.OK, MessageBoxImage.Warning);
                 return;
             }
-            maxWidth = parsed;
+            outputWidth = width;
+            outputHeight = height;
         }
+
+        int randomSeed = 0;
+        var samplingOrderTag = (SamplingOrderCombo.SelectedItem as ComboBoxItem)?.Tag as string;
+        if (samplingOrderTag == "Random" && !int.TryParse(RandomSeedTextBox.Text.Trim(), out randomSeed))
+        {
+            MessageBox.Show(this, "Enter a valid integer random seed.", "Invalid value", MessageBoxButton.OK, MessageBoxImage.Warning);
+            return;
+        }
+
+        var motionModeTag = (MotionModeCombo.SelectedItem as ComboBoxItem)?.Tag as string;
 
         Parameters = new SlitScanParameters
         {
             SlitAngleDegrees = SlitAngleSlider.Value,
-            SlitWidthPixels = (int)SlitWidthSlider.Value,
             SlitPositionFraction = SlitPositionSlider.Value / 100.0,
-            ScanDirection = ((ScanDirectionCombo.SelectedItem as ComboBoxItem)?.Tag as string) == "Reverse"
-                ? SlitScanDirection.Reverse
-                : SlitScanDirection.Forward,
-            ScanSpeedPixelsPerFrame = (int)ScanSpeedSlider.Value,
+            SlitWidthPixels = (int)SlitWidthSlider.Value,
+            WidthIsAnimated = AnimateWidthCheckBox.IsChecked == true,
+            SlitWidthEndPixels = (int)SlitWidthEndSlider.Value,
+            WidthEasing = ParseEasing(WidthEasingCombo),
+
+            MotionMode = motionModeTag switch
+            {
+                "Sweep" => SlitScanMotionMode.Sweep,
+                "Rotational" => SlitScanMotionMode.Rotational,
+                _ => SlitScanMotionMode.Static,
+            },
+            SweepEndPositionFraction = SweepEndSlider.Value / 100.0,
+            SweepEasing = ParseEasing(SweepEasingCombo),
+            RotationCenterXFraction = RotationCenterXSlider.Value / 100.0,
+            RotationCenterYFraction = RotationCenterYSlider.Value / 100.0,
+            RotationRadiusFraction = RotationRadiusSlider.Value / 100.0,
+            RotationRevolutions = RotationRevolutionsSlider.Value,
+            RotationDirection = ((RotationDirectionCombo.SelectedItem as ComboBoxItem)?.Tag as string) == "CounterClockwise"
+                ? SlitScanRotationDirection.CounterClockwise
+                : SlitScanRotationDirection.Clockwise,
+
+            SamplingOrder = samplingOrderTag switch
+            {
+                "Reverse" => SlitScanSamplingOrder.Reverse,
+                "PingPong" => SlitScanSamplingOrder.PingPong,
+                "Random" => SlitScanSamplingOrder.Random,
+                _ => SlitScanSamplingOrder.Forward,
+            },
+            RandomSeed = randomSeed,
             FrameSamplingInterval = (int)FrameIntervalSlider.Value,
-            MaxOutputWidth = maxWidth,
+            InPointFraction = InPointSlider.Value / 100.0,
+            OutPointFraction = OutPointSlider.Value / 100.0,
+
+            ScanSpeedPixelsPerFrame = (int)ScanSpeedSlider.Value,
             BlendMode = ((BlendModeCombo.SelectedItem as ComboBoxItem)?.Tag as string) switch
             {
                 "Lighten" => SlitScanBlendMode.Lighten,
                 "Average" => SlitScanBlendMode.Average,
                 _ => SlitScanBlendMode.Normal,
+            },
+
+            CustomOutputSize = outputWidth is not null,
+            OutputWidth = outputWidth ?? 1920,
+            OutputHeight = outputHeight ?? 1080,
+            Interpolation = ((InterpolationCombo.SelectedItem as ComboBoxItem)?.Tag as string) switch
+            {
+                "Nearest" => SlitScanInterpolation.Nearest,
+                "Linear" => SlitScanInterpolation.Linear,
+                _ => SlitScanInterpolation.Cubic,
             },
         };
 
