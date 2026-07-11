@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using System.IO;
 using System.Reflection;
 using System.Windows;
 using System.Windows.Controls;
@@ -22,7 +23,6 @@ public partial class MainWindow : Window
     private CancellationTokenSource? _stationSearchDebounceCts;
     private CancellationTokenSource? _jetConeSearchDebounceCts;
     private CancellationTokenSource? _longExposureSearchDebounceCts;
-    private CancellationTokenSource? _slitScanSearchDebounceCts;
 
     public MainWindow()
     {
@@ -33,7 +33,6 @@ public partial class MainWindow : Window
         _viewModel.Stations.VideoSelectionRequested += OnStationVideoSelectionRequested;
         _viewModel.JetCone.VideoSelectionRequested += OnJetConeVideoSelectionRequested;
         _viewModel.LongExposure.VideoSelectionRequested += OnLongExposureVideoSelectionRequested;
-        _viewModel.SlitScan.VideoSelectionRequested += OnSlitScanVideoSelectionRequested;
         Closed += (_, _) =>
         {
             _viewModel.Dispose();
@@ -526,48 +525,7 @@ public partial class MainWindow : Window
         resultsWindow.ShowDialog();
     }
 
-    private async void SlitScanSystemSearchBox_TextChanged(AutoSuggestBox sender, AutoSuggestBoxTextChangedEventArgs args)
-    {
-        if (args.Reason != AutoSuggestionBoxTextChangeReason.UserInput)
-        {
-            return;
-        }
-
-        _slitScanSearchDebounceCts?.Cancel();
-        var cts = new CancellationTokenSource();
-        _slitScanSearchDebounceCts = cts;
-
-        try
-        {
-            await Task.Delay(300, cts.Token);
-            await _viewModel.SlitScan.RefreshSuggestionsAsync(sender.Text, cts.Token);
-        }
-        catch (OperationCanceledException)
-        {
-            // superseded by a newer keystroke
-        }
-    }
-
-    private async void SlitScanSystemSearchBox_SuggestionChosen(AutoSuggestBox sender, AutoSuggestBoxSuggestionChosenEventArgs args)
-    {
-        if (args.SelectedItem is Core.Spansh.Models.SpanshSearchSystem system)
-        {
-            await _viewModel.SlitScan.SubmitAsync(system);
-        }
-    }
-
-    private async void SlitScanSystemSearchBox_QuerySubmitted(AutoSuggestBox sender, AutoSuggestBoxQuerySubmittedEventArgs args)
-    {
-        var chosen = args.ChosenSuggestion as Core.Spansh.Models.SpanshSearchSystem;
-        await _viewModel.SlitScan.SubmitAsync(chosen);
-    }
-
-    private async void SlitScanSubmitButton_Click(object sender, RoutedEventArgs e)
-    {
-        await _viewModel.SlitScan.SubmitAsync(null);
-    }
-
-    private async void OnSlitScanVideoSelectionRequested(SlitScanRowViewModel row)
+    private void SlitScanUploadButton_Click(object sender, RoutedEventArgs e)
     {
         var promptWindow = new VideoUploadPromptWindow { Owner = this };
         if (promptWindow.ShowDialog() != true || promptWindow.SelectedFilePath is not string videoPath)
@@ -575,11 +533,26 @@ public partial class MainWindow : Window
             return;
         }
 
-        var parametersWindow = new SlitScanParametersWindow { Owner = this };
-        if (parametersWindow.ShowDialog() != true || parametersWindow.Parameters is not { } parameters)
+        _viewModel.SlitScan.ErrorMessage = null;
+        _viewModel.SlitScan.VideoFilePath = videoPath;
+    }
+
+    private async void SlitScanGenerateButton_Click(object sender, RoutedEventArgs e)
+    {
+        var videoPath = _viewModel.SlitScan.VideoFilePath;
+        if (videoPath is null)
+        {
+            _viewModel.SlitScan.ErrorMessage = "Upload a video first.";
+            return;
+        }
+
+        var parameters = SlitScanControls.BuildParameters();
+        if (parameters is null)
         {
             return;
         }
+
+        _viewModel.SlitScan.ErrorMessage = null;
 
         var processingWindow = new SlitScanProcessingWindow(
             (path, progress, ct) => _viewModel.SlitScan.GenerateAsync(path, parameters, progress, ct),
@@ -601,9 +574,14 @@ public partial class MainWindow : Window
 
         var resultsWindow = new LongExposureResultsWindow(
             new[] { ("Slit Scan", result.ImagePng) },
-            row.Target.SystemName,
-            row.Target.ObjectName)
+            Path.GetFileNameWithoutExtension(videoPath),
+            null)
         { Owner = this };
         resultsWindow.ShowDialog();
+    }
+
+    private void SlitScanResetButton_Click(object sender, RoutedEventArgs e)
+    {
+        SlitScanControls.ResetToDefaults();
     }
 }

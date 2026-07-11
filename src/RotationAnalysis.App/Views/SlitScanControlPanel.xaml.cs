@@ -4,16 +4,14 @@ using RotationAnalysis.Core.VideoAnalysis.SlitScan;
 
 namespace RotationAnalysis.App.Views;
 
-/// <summary>Compact parameter panel for Slit Scan - deliberately built from standard
-/// sliders/dropdowns (no custom canvas controls) per a simplified scope: Static/Sweep/Rotational
-/// motion, optional width animation, sampling order, In/Out trim, and independent output sizing.
-/// Freeform path motion, audio-reactivity, and a separate scrub-preview renderer are out of scope
-/// for this pass.</summary>
-public partial class SlitScanParametersWindow : Window
+/// <summary>Slit Scan's parameter controls, embedded directly in the tab rather than a modal
+/// dialog - built from standard sliders/dropdowns (no custom canvas controls): Static/Sweep/
+/// Rotational motion, optional width animation, sampling order, In/Out trim, and independent
+/// output sizing. Freeform path motion, audio-reactivity, and a separate scrub-preview renderer
+/// are out of scope for this pass.</summary>
+public partial class SlitScanControlPanel : UserControl
 {
-    public SlitScanParameters? Parameters { get; private set; }
-
-    public SlitScanParametersWindow()
+    public SlitScanControlPanel()
     {
         InitializeComponent();
     }
@@ -226,7 +224,9 @@ public partial class SlitScanParametersWindow : Window
         _ => SlitScanEasing.Linear,
     };
 
-    private void GenerateButton_Click(object sender, RoutedEventArgs e)
+    /// <summary>Reads the current control values into a <see cref="SlitScanParameters"/>, or
+    /// returns null (after showing a validation message) if a text field holds an invalid value.</summary>
+    public SlitScanParameters? BuildParameters()
     {
         int? outputWidth = null;
         int? outputHeight = null;
@@ -235,8 +235,8 @@ public partial class SlitScanParametersWindow : Window
             if (!int.TryParse(OutputWidthTextBox.Text.Trim(), out var width) || width < 10
                 || !int.TryParse(OutputHeightTextBox.Text.Trim(), out var height) || height < 10)
             {
-                MessageBox.Show(this, "Enter valid output dimensions (at least 10 pixels each).", "Invalid value", MessageBoxButton.OK, MessageBoxImage.Warning);
-                return;
+                MessageBox.Show(Window.GetWindow(this), "Enter valid output dimensions (at least 10 pixels each).", "Invalid value", MessageBoxButton.OK, MessageBoxImage.Warning);
+                return null;
             }
             outputWidth = width;
             outputHeight = height;
@@ -246,13 +246,13 @@ public partial class SlitScanParametersWindow : Window
         var samplingOrderTag = (SamplingOrderCombo.SelectedItem as ComboBoxItem)?.Tag as string;
         if (samplingOrderTag == "Random" && !int.TryParse(RandomSeedTextBox.Text.Trim(), out randomSeed))
         {
-            MessageBox.Show(this, "Enter a valid integer random seed.", "Invalid value", MessageBoxButton.OK, MessageBoxImage.Warning);
-            return;
+            MessageBox.Show(Window.GetWindow(this), "Enter a valid integer random seed.", "Invalid value", MessageBoxButton.OK, MessageBoxImage.Warning);
+            return null;
         }
 
         var motionModeTag = (MotionModeCombo.SelectedItem as ComboBoxItem)?.Tag as string;
 
-        Parameters = new SlitScanParameters
+        return new SlitScanParameters
         {
             SlitAngleDegrees = SlitAngleSlider.Value,
             SlitPositionFraction = SlitPositionSlider.Value / 100.0,
@@ -307,9 +307,41 @@ public partial class SlitScanParametersWindow : Window
                 _ => SlitScanInterpolation.Cubic,
             },
         };
-
-        DialogResult = true;
     }
 
-    private void CancelButton_Click(object sender, RoutedEventArgs e) => DialogResult = false;
+    /// <summary>Restores every control to its default value, so the user can try again from a
+    /// clean slate without re-uploading the video.</summary>
+    public void ResetToDefaults()
+    {
+        SelectComboTag(MotionDirectionCombo, "None");
+        SlitAngleSlider.Value = 90;
+        SlitPositionSlider.Value = 50;
+        SlitWidthSlider.Value = 2;
+        AnimateWidthCheckBox.IsChecked = false;
+        SlitWidthEndSlider.Value = 2;
+        SelectComboTag(WidthEasingCombo, "Linear");
+
+        SelectComboTag(MotionModeCombo, "Static");
+        SweepEndSlider.Value = 50;
+        SelectComboTag(SweepEasingCombo, "Linear");
+        RotationCenterXSlider.Value = 50;
+        RotationCenterYSlider.Value = 50;
+        RotationRadiusSlider.Value = 50;
+        RotationRevolutionsSlider.Value = 1.0;
+        SelectComboTag(RotationDirectionCombo, "Clockwise");
+
+        SelectComboTag(SamplingOrderCombo, "Forward");
+        RandomSeedTextBox.Text = "0";
+        FrameIntervalSlider.Value = 1;
+        InPointSlider.Value = 0;
+        OutPointSlider.Value = 100;
+
+        ScanSpeedSlider.Value = 2;
+        SelectComboTag(BlendModeCombo, "Normal");
+
+        CustomOutputSizeCheckBox.IsChecked = false;
+        OutputWidthTextBox.Text = "1920";
+        OutputHeightTextBox.Text = "1080";
+        SelectComboTag(InterpolationCombo, "Cubic");
+    }
 }

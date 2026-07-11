@@ -3,6 +3,7 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:ui="http://schemas.modernwpf.com/2019"
         xmlns:converters="clr-namespace:RotationAnalysis.App.Converters"
+        xmlns:views="clr-namespace:RotationAnalysis.App.Views"
         ui:WindowHelper.UseModernWindowStyle="True"
         Icon="/Assets/canonn.ico"
         Title="Rotation Analysis Lab" Height="780" Width="1150"
@@ -453,65 +454,37 @@
                     <Grid.RowDefinitions>
                         <RowDefinition Height="Auto"/>
                         <RowDefinition Height="Auto"/>
-                        <RowDefinition Height="Auto"/>
-                        <RowDefinition Height="Auto"/>
                         <RowDefinition Height="*"/>
+                        <RowDefinition Height="Auto"/>
                     </Grid.RowDefinitions>
 
                     <Grid Grid.Row="0">
                         <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="*"/>
                             <ColumnDefinition Width="Auto"/>
+                            <ColumnDefinition Width="*"/>
                         </Grid.ColumnDefinitions>
-                        <ui:AutoSuggestBox x:Name="SlitScanSystemSearchBox" Grid.Column="0"
-                                           FontSize="16"
-                                           PlaceholderText="Type at least 3 characters of a system name…"
-                                           Text="{Binding SystemQuery, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
-                                           ItemsSource="{Binding Suggestions}"
-                                           DisplayMemberPath="Name"
-                                           TextMemberPath="Name"
-                                           TextChanged="SlitScanSystemSearchBox_TextChanged"
-                                           QuerySubmitted="SlitScanSystemSearchBox_QuerySubmitted"
-                                           SuggestionChosen="SlitScanSystemSearchBox_SuggestionChosen"/>
-                        <Button Grid.Column="1" Content="Submit" Margin="8,0,0,0" Padding="16,8"
+                        <Button Grid.Column="0" Content="Upload Video…" Padding="16,8"
                                 FontSize="16" Background="{StaticResource CanonnAccentBrush}"
-                                Foreground="White" Click="SlitScanSubmitButton_Click"/>
+                                Foreground="White" Click="SlitScanUploadButton_Click"/>
+                        <TextBlock Grid.Column="1" Margin="12,0,0,0" VerticalAlignment="Center" FontSize="14"
+                                   Foreground="{StaticResource CanonnTextBrightBrush}"
+                                   Text="{Binding VideoFileName, StringFormat='Selected video: {0}', FallbackValue='No video selected yet.'}"/>
                     </Grid>
 
                     <TextBlock Grid.Row="1" Text="{Binding ErrorMessage}" Foreground="#FF6B6B" Margin="0,8,0,0"
                                TextWrapping="Wrap"
                                Visibility="{Binding ErrorMessage, Converter={StaticResource StringToVisibility}}"/>
 
-                    <ProgressBar Grid.Row="2" IsIndeterminate="True" Height="4" Margin="0,8,0,0"
-                                 Foreground="{StaticResource CanonnAccentBrush}"
-                                 Visibility="{Binding IsBusy, Converter={StaticResource BoolToVisibility}}"/>
+                    <ScrollViewer Grid.Row="2" Margin="0,12,0,0" VerticalScrollBarVisibility="Auto" MaxWidth="520" HorizontalAlignment="Left">
+                        <views:SlitScanControlPanel x:Name="SlitScanControls"/>
+                    </ScrollViewer>
 
-                    <TextBlock Grid.Row="3" Margin="0,12,0,4" FontSize="18" FontWeight="SemiBold"
-                               Foreground="{StaticResource CanonnAccentBrush}"
-                               Text="{Binding ResolvedSystemName, StringFormat='Bodies and stations in {0}'}"
-                               Visibility="{Binding ResolvedSystemName, Converter={StaticResource StringToVisibility}}"/>
-
-                    <DataGrid Grid.Row="4" ItemsSource="{Binding Targets}" AutoGenerateColumns="False"
-                              IsReadOnly="True" CanUserAddRows="False" Margin="0,4,0,0"
-                              SelectionUnit="CellOrRowHeader" SelectionMode="Extended" HeadersVisibility="All"
-                              Background="{StaticResource CanonnSurface2Brush}"
-                              RowBackground="{StaticResource CanonnSurfaceBrush}"
-                              AlternatingRowBackground="{StaticResource CanonnSurface2Brush}"
-                              BorderBrush="{StaticResource CanonnBorderBrush}" BorderThickness="1">
-                        <DataGrid.Columns>
-                            <DataGridTextColumn Header="System" Binding="{Binding SystemName}" Width="Auto"/>
-                            <DataGridTextColumn Header="Object" Binding="{Binding ObjectName}" Width="Auto"/>
-                            <DataGridTextColumn Header="Kind" Binding="{Binding Kind}" Width="Auto"/>
-                            <DataGridTextColumn Header="Type" Binding="{Binding ObjectType}" Width="Auto"/>
-                            <DataGridTemplateColumn Header="Video" Width="Auto">
-                                <DataGridTemplateColumn.CellTemplate>
-                                    <DataTemplate>
-                                        <Button Content="Select Video…" Padding="8,4" Command="{Binding SelectVideoCommand}"/>
-                                    </DataTemplate>
-                                </DataGridTemplateColumn.CellTemplate>
-                            </DataGridTemplateColumn>
-                        </DataGrid.Columns>
-                    </DataGrid>
+                    <StackPanel Grid.Row="3" Orientation="Horizontal" Margin="0,16,0,0">
+                        <Button Content="Generate Slit Scan" Padding="24,8" Margin="0,0,8,0"
+                                Background="{StaticResource CanonnAccentBrush}" Foreground="White"
+                                Click="SlitScanGenerateButton_Click"/>
+                        <Button Content="Reset Controls" Padding="16,8" Click="SlitScanResetButton_Click"/>
+                    </StackPanel>
                 </Grid>
             </TabItem>
 

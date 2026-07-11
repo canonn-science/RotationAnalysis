@@ -299,6 +299,5 @@ public sealed class MainViewModel : ObservableObject, IDisposable
         Stations.Dispose();
         JetCone.Dispose();
         LongExposure.Dispose();
-        SlitScan.Dispose();
     }
 }
