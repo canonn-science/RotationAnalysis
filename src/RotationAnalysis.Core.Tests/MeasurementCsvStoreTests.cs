@@ -15,7 +15,8 @@ public class MeasurementCsvStoreTests : IDisposable
         }
     }
 
-    private string CsvPath => Path.Combine(_directory, "measurements.csv");
+    private string CsvPath => Path.Combine(_directory, "ring_period.csv");
+    private string LegacyCsvPath => Path.Combine(_directory, "measurements.csv");
 
     [Fact]
     public void Constructor_MigratesOldHeader_PreservingExistingDataAndAddingEmptyNewColumns()
@@ -70,5 +71,40 @@ public class MeasurementCsvStoreTests : IDisposable
         var store = new MeasurementCsvStore(CsvPath);
         Assert.False(File.Exists(CsvPath));
         Assert.Empty(store.ReadAll());
+    }
+
+    [Fact]
+    public void Constructor_RenamesLegacyMeasurementsCsvToRingPeriodCsv()
+    {
+        Directory.CreateDirectory(_directory);
+        var original =
+            "Timestamp,System Name,id64,x,y,z,Body Name,Body Type,Body Mass,Ring Name,Ring Type,Ring Mass,innerRadius,outerRadius,Width,estimated rotation,observed rotation,video filename,submitted\r\n" +
+            "2026-01-01T00:00:00Z,Test System,12345,1,2,3,Test Body,Icy body,1.5,Test Ring,Icy,2.5,100000,180000,80000,1000,1050,test.mp4,True\r\n";
+        File.WriteAllText(LegacyCsvPath, original);
+
+        var store = new MeasurementCsvStore(CsvPath);
+
+        Assert.False(File.Exists(LegacyCsvPath));
+        Assert.True(File.Exists(CsvPath));
+        var record = Assert.Single(store.ReadAll());
+        Assert.Equal("Test System", record.SystemName);
+    }
+
+    [Fact]
+    public void Constructor_DoesNotOverwriteRingPeriodCsvWhenBothLegacyAndCurrentFilesExist()
+    {
+        Directory.CreateDirectory(_directory);
+        File.WriteAllText(LegacyCsvPath,
+            "Timestamp,System Name,id64,x,y,z,Body Name,Body Type,Body Mass,Ring Name,Ring Type,Ring Mass,innerRadius,outerRadius,Width,estimated rotation,observed rotation,video filename,submitted\r\n" +
+            "2026-01-01T00:00:00Z,Legacy System,1,1,2,3,Body,Icy body,1.5,Ring,Icy,2.5,100000,180000,80000,1000,1050,legacy.mp4,True\r\n");
+        File.WriteAllText(CsvPath,
+            "Timestamp,System Name,id64,x,y,z,Body Name,Body Type,Body Mass,Ring Name,Ring Type,Ring Mass,innerRadius,outerRadius,Width,estimated rotation,observed rotation,video filename,submitted\r\n" +
+            "2026-01-02T00:00:00Z,Current System,2,1,2,3,Body,Icy body,1.5,Ring,Icy,2.5,100000,180000,80000,1000,1050,current.mp4,True\r\n");
+
+        var store = new MeasurementCsvStore(CsvPath);
+
+        Assert.True(File.Exists(LegacyCsvPath));
+        var record = Assert.Single(store.ReadAll());
+        Assert.Equal("Current System", record.SystemName);
     }
 }

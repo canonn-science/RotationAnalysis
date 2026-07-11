@@ -19,6 +19,7 @@ public partial class MainWindow : Window
     private readonly MainViewModel _viewModel = new();
     private readonly UpdateChecker _updateChecker = new();
     private CancellationTokenSource? _searchDebounceCts;
+    private CancellationTokenSource? _stationSearchDebounceCts;
 
     public MainWindow()
     {
@@ -26,6 +27,7 @@ public partial class MainWindow : Window
         DataContext = _viewModel;
         _viewModel.VideoSelectionRequested += OnVideoSelectionRequested;
         _viewModel.Measurements.SubmissionFailed += OnCanonnSubmissionFailed;
+        _viewModel.Stations.VideoSelectionRequested += OnStationVideoSelectionRequested;
         Closed += (_, _) =>
         {
             _viewModel.Dispose();
@@ -33,6 +35,12 @@ public partial class MainWindow : Window
         };
         Loaded += async (_, _) => await CheckForUpdatesAsync();
         VersionText.Text = $"Version v{GetCurrentVersion().ToString(3)}";
+        UpdateClaudeApiKeyStatusText();
+    }
+
+    private void UpdateClaudeApiKeyStatusText()
+    {
+        ClaudeApiKeyStatusText.Text = _viewModel.HasClaudeApiKey ? "A key is configured." : "No key configured.";
     }
 
     private static Version GetCurrentVersion() => Assembly.GetExecutingAssembly().GetName().Version ?? new Version(0, 0, 0);
@@ -177,16 +185,21 @@ public partial class MainWindow : Window
         // shell round-trip overlaps window construction/layout instead of starting after it.
         var quickMetadataTask = Task.Run(() => QuickVideoMetadataReader.Read(videoPath));
 
-        var processingWindow = new VideoProcessingWindow(_viewModel, videoPath, row.Ring.EstimatedPeriodSeconds, quickMetadataTask, row.Ring.RingName) { Owner = this };
+        var processingWindow = new VideoProcessingWindow(_viewModel.AnalyzeVideoAsync, videoPath, row.Ring.EstimatedPeriodSeconds, quickMetadataTask, row.Ring.RingName) { Owner = this };
         var completed = processingWindow.ShowDialog();
 
         if (completed == true && processingWindow.Result is not null)
         {
+            var result = processingWindow.Result;
             var finalVideoPath = processingWindow.FinalVideoPath;
-            var resultsWindow = new ResultsWindow(_viewModel, row, processingWindow.Result, finalVideoPath) { Owner = this };
+            var resultsWindow = new ResultsWindow(
+                row.Ring.SystemName, row.Ring.BodyName, "Ring:", row.Ring.RingName,
+                row.Ring.EstimatedPeriodSeconds, result, finalVideoPath,
+                ct => _viewModel.SubmitMeasurementToCanonnAsync(row, result, ct))
+            { Owner = this };
             if (resultsWindow.ShowDialog() == true)
             {
-                _viewModel.SaveMeasurement(row, processingWindow.Result, finalVideoPath, resultsWindow.SubmittedToCanonn);
+                _viewModel.SaveMeasurement(row, result, finalVideoPath, resultsWindow.SubmittedToCanonn);
             }
         }
         else if (processingWindow.FailureMessage is not null)
@@ -198,5 +211,90 @@ public partial class MainWindow : Window
                 CloseButtonText = "OK",
             }.ShowAsync();
         }
+    }
+
+    private async void StationSystemSearchBox_TextChanged(AutoSuggestBox sender, AutoSuggestBoxTextChangedEventArgs args)
+    {
+        if (args.Reason != AutoSuggestionBoxTextChangeReason.UserInput)
+        {
+            return;
+        }
+
+        _stationSearchDebounceCts?.Cancel();
+        var cts = new CancellationTokenSource();
+        _stationSearchDebounceCts = cts;
+
+        try
+        {
+            await Task.Delay(300, cts.Token);
+            await _viewModel.Stations.RefreshSuggestionsAsync(sender.Text, cts.Token);
+        }
+        catch (OperationCanceledException)
+        {
+            // superseded by a newer keystroke
+        }
+    }
+
+    private async void StationSystemSearchBox_SuggestionChosen(AutoSuggestBox sender, AutoSuggestBoxSuggestionChosenEventArgs args)
+    {
+        if (args.SelectedItem is Core.Spansh.Models.SpanshSearchSystem system)
+        {
+            await _viewModel.Stations.SubmitAsync(system);
+        }
+    }
+
+    private async void StationSystemSearchBox_QuerySubmitted(AutoSuggestBox sender, AutoSuggestBoxQuerySubmittedEventArgs args)
+    {
+        var chosen = args.ChosenSuggestion as Core.Spansh.Models.SpanshSearchSystem;
+        await _viewModel.Stations.SubmitAsync(chosen);
+    }
+
+    private async void StationSubmitButton_Click(object sender, RoutedEventArgs e)
+    {
+        await _viewModel.Stations.SubmitAsync(null);
+    }
+
+    private async void OnStationVideoSelectionRequested(StationRowViewModel row)
+    {
+        var promptWindow = new VideoUploadPromptWindow { Owner = this };
+        if (promptWindow.ShowDialog() != true || promptWindow.SelectedFilePath is not string videoPath)
+        {
+            return;
+        }
+
+        var quickMetadataTask = Task.Run(() => QuickVideoMetadataReader.Read(videoPath));
+
+        var processingWindow = new VideoProcessingWindow(_viewModel.Stations.AnalyzeVideoAsync, videoPath, row.Station.EstimatedRotationSeconds, quickMetadataTask, row.Station.StationName) { Owner = this };
+        var completed = processingWindow.ShowDialog();
+
+        if (completed == true && processingWindow.Result is not null)
+        {
+            var result = processingWindow.Result;
+            var finalVideoPath = processingWindow.FinalVideoPath;
+            var resultsWindow = new ResultsWindow(
+                row.Station.SystemName, row.Station.BodyName ?? "N/A", "Station:", row.Station.StationName,
+                row.Station.EstimatedRotationSeconds, result, finalVideoPath,
+                submitToCanonn: null)
+            { Owner = this };
+            if (resultsWindow.ShowDialog() == true)
+            {
+                _viewModel.Stations.SaveMeasurement(row, result, finalVideoPath);
+            }
+        }
+        else if (processingWindow.FailureMessage is not null)
+        {
+            await new ContentDialog
+            {
+                Title = "Video analysis failed",
+                Content = processingWindow.FailureMessage,
+                CloseButtonText = "OK",
+            }.ShowAsync();
+        }
+    }
+
+    private void DeleteClaudeApiKeyButton_Click(object sender, RoutedEventArgs e)
+    {
+        _viewModel.DeleteClaudeApiKey();
+        UpdateClaudeApiKeyStatusText();
     }
 }

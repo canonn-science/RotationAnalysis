@@ -37,7 +37,7 @@
                 <TextBlock Grid.Row="1" Grid.Column="0" Text="Body:" Margin="0,0,12,4" FontWeight="SemiBold" Foreground="{StaticResource CanonnTextBrightBrush}"/>
                 <TextBlock Grid.Row="1" Grid.Column="1" x:Name="BodyNameText" Margin="0,0,0,4" FontWeight="Bold" Foreground="{StaticResource CanonnTextBrightBrush}"/>
 
-                <TextBlock Grid.Row="2" Grid.Column="0" Text="Ring:" Margin="0,0,12,0" FontWeight="SemiBold" Foreground="{StaticResource CanonnTextBrightBrush}"/>
+                <TextBlock Grid.Row="2" Grid.Column="0" x:Name="RingLabelText" Text="Ring:" Margin="0,0,12,0" FontWeight="SemiBold" Foreground="{StaticResource CanonnTextBrightBrush}"/>
                 <TextBlock Grid.Row="2" Grid.Column="1" x:Name="RingNameText" Margin="0,0,0,0" FontWeight="Bold" Foreground="{StaticResource CanonnTextBrightBrush}"/>
             </Grid>
         </Border>

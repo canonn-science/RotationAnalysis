@@ -1,6 +1,5 @@
 using System.Windows;
 using RotationAnalysis.App.Infrastructure;
-using RotationAnalysis.App.ViewModels;
 using RotationAnalysis.Core.Diagnostics;
 using RotationAnalysis.Core.VideoAnalysis;
 
@@ -13,29 +12,36 @@ namespace RotationAnalysis.App.Views;
 /// </summary>
 public partial class ResultsWindow : Window
 {
-    private readonly MainViewModel _viewModel;
-    private readonly RingRowViewModel _row;
-    private readonly HorizontalVideoAnalysisResult _result;
+    private readonly Func<CancellationToken, Task>? _submitToCanonn;
 
     /// <summary>Whether the user successfully sent this measurement to Canonn from this dialog.</summary>
     public bool SubmittedToCanonn { get; private set; }
 
-    public ResultsWindow(MainViewModel viewModel, RingRowViewModel row, HorizontalVideoAnalysisResult result, string videoPath)
+    /// <summary>
+    /// <paramref name="submitToCanonn"/> is null to hide the "Send to Canonn" button entirely -
+    /// used for modes (e.g. Station Rotation, for now) that don't have a submission endpoint yet.
+    /// <paramref name="objectLabel"/>/<paramref name="objectName"/> are the third identity row's
+    /// label/value ("Ring:"/ring name for Ring Rotation, "Station:"/station name for Station
+    /// Rotation).
+    /// </summary>
+    public ResultsWindow(
+        string systemName, string bodyName, string objectLabel, string objectName,
+        double? estimatedPeriodSeconds, HorizontalVideoAnalysisResult result, string videoPath,
+        Func<CancellationToken, Task>? submitToCanonn)
     {
         InitializeComponent();
 
-        _viewModel = viewModel;
-        _row = row;
-        _result = result;
+        _submitToCanonn = submitToCanonn;
 
-        SystemNameText.Text = row.Ring.SystemName;
-        BodyNameText.Text = row.Ring.BodyName;
-        RingNameText.Text = row.Ring.RingName;
+        SystemNameText.Text = systemName;
+        BodyNameText.Text = bodyName;
+        RingLabelText.Text = objectLabel;
+        RingNameText.Text = objectName;
 
-        EstimatedText.Text = DurationFormat.SecondsWithRaw(row.Ring.EstimatedPeriodSeconds);
+        EstimatedText.Text = DurationFormat.SecondsWithRaw(estimatedPeriodSeconds);
         ObservedText.Text = DurationFormat.SecondsWithRaw(result.ObservedPeriodSeconds);
 
-        if (row.Ring.EstimatedPeriodSeconds is double estimated && estimated > 0)
+        if (estimatedPeriodSeconds is double estimated && estimated > 0)
         {
             double diffPercent = (result.ObservedPeriodSeconds - estimated) / estimated * 100.0;
             DifferenceText.Text = $"{diffPercent:+0.0;-0.0}%";
@@ -48,15 +54,25 @@ public partial class ResultsWindow : Window
         ConfidenceText.Text = $"{result.ConfidencePercent:F0}%";
         RollText.Text = $"{result.MedianRollDegrees:+0.0;-0.0}° from level";
         TrackingText.Text = $"{result.ChunksUsed} of {result.ChunksAvailable} recording segments";
+
+        if (_submitToCanonn is null)
+        {
+            SendToCanonnButton.Visibility = Visibility.Collapsed;
+        }
     }
 
     private async void SendToCanonnButton_Click(object sender, RoutedEventArgs e)
     {
+        if (_submitToCanonn is null)
+        {
+            return;
+        }
+
         SendToCanonnButton.IsEnabled = false;
         SubmitErrorText.Text = null;
         try
         {
-            await _viewModel.SubmitMeasurementToCanonnAsync(_row, _result);
+            await _submitToCanonn(CancellationToken.None);
             SubmittedToCanonn = true;
             SendToCanonnButton.Content = "Sent to Canonn ✓";
         }

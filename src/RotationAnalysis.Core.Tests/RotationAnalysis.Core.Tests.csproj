@@ -6,6 +6,9 @@
     <Nullable>enable</Nullable>
 
     <IsPackable>false</IsPackable>
+    <!-- Tests only ever run on windows-latest (see release.yml); SecretStoreTests exercises the
+         Windows-only DPAPI-backed SecretStore, which CA1416 otherwise flags on every call site. -->
+    <NoWarn>$(NoWarn);CA1416</NoWarn>
   </PropertyGroup>
 
   <ItemGroup>

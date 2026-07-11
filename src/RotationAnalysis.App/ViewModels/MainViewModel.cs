@@ -19,17 +19,21 @@ public sealed class MainViewModel : ObservableObject, IDisposable
     private readonly CanonnClient _canonnClient = new();
     private readonly MeasurementCsvStore _measurementStore = new();
     private readonly AppSettingsStore _settingsStore = new();
+    private readonly SecretStore _secretStore = new();
 
     private string _systemQuery = string.Empty;
     private string? _errorMessage;
     private bool _isBusy;
     private string? _resolvedSystemName;
     private string _commanderName;
+    private bool _hasClaudeApiKey;
 
     public MainViewModel()
     {
         _commanderName = _settingsStore.Load().CommanderName ?? DefaultCommanderName;
         Measurements = new MeasurementsViewModel(_measurementStore, SubmitRecordToCanonnAsync, () => CommanderName);
+        Stations = new StationViewModel();
+        _hasClaudeApiKey = _secretStore.TryGetClaudeApiKey(out _);
         _ = LoadSubmittedFromCanonnAsync();
     }
 
@@ -74,6 +78,20 @@ public sealed class MainViewModel : ObservableObject, IDisposable
     public ObservableCollection<RingRowViewModel> Rings { get; } = new();
 
     public MeasurementsViewModel Measurements { get; }
+
+    public StationViewModel Stations { get; }
+
+    public bool HasClaudeApiKey
+    {
+        get => _hasClaudeApiKey;
+        private set => SetField(ref _hasClaudeApiKey, value);
+    }
+
+    public void DeleteClaudeApiKey()
+    {
+        _secretStore.DeleteClaudeApiKey();
+        HasClaudeApiKey = false;
+    }
 
     /// <summary>Raised when the user clicks "Select Video…" on a ring row; the view handles the file picker.</summary>
     public event Action<RingRowViewModel>? VideoSelectionRequested;
@@ -269,5 +287,6 @@ public sealed class MainViewModel : ObservableObject, IDisposable
     {
         _spanshClient.Dispose();
         _canonnClient.Dispose();
+        Stations.Dispose();
     }
 }
