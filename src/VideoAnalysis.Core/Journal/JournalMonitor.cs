@@ -4,11 +4,11 @@ using System.Text.Json;
 namespace VideoAnalysis.Core.Journal;
 
 /// <summary>Watches the Elite Dangerous journal directory for the active commander's name and
-/// current system location: an initial read of the most recent journal file on <see cref="Start"/>,
-/// then live updates as the game appends to that file or starts a new one each session. Only ever
-/// reads complete newline-terminated lines, so a session file the game is mid-write to is picked up
-/// correctly on the next change notification rather than having a half-written JSON line
-/// permanently skipped.</summary>
+/// current location (system, body, docked station): an initial read of the most recent journal
+/// file on <see cref="Start"/>, then live updates as the game appends to that file or starts a
+/// new one each session. Only ever reads complete newline-terminated lines, so a session file
+/// the game is mid-write to is picked up correctly on the next change notification rather than
+/// having a half-written JSON line permanently skipped.</summary>
 public sealed class JournalMonitor : IDisposable
 {
     private const string JournalFilePattern = "Journal.*.log";
@@ -18,6 +18,9 @@ public sealed class JournalMonitor : IDisposable
     private string? _currentFilePath;
     private long _readOffset;
     private string? _lastKnownSystemName;
+    private string? _lastKnownBodyName;
+    private string? _lastKnownStationName;
+    private string? _lastKnownStationType;
 
     public string JournalDirectory { get; }
 
@@ -30,6 +33,27 @@ public sealed class JournalMonitor : IDisposable
         get { lock (_lock) { return _lastKnownSystemName; } }
     }
 
+    /// <summary>The most recently observed current body, from <c>ApproachBody</c>/<c>SupercruiseExit</c>
+    /// events. Same "read without needing to have subscribed first" rationale as <see cref="LastKnownSystemName"/>.</summary>
+    public string? LastKnownBodyName
+    {
+        get { lock (_lock) { return _lastKnownBodyName; } }
+    }
+
+    /// <summary>The most recently observed docked station name, from a <c>Docked</c> event -
+    /// cleared (set to null) by an <c>Undocked</c> event.</summary>
+    public string? LastKnownStationName
+    {
+        get { lock (_lock) { return _lastKnownStationName; } }
+    }
+
+    /// <summary>The most recently observed docked station type, from a <c>Docked</c> event -
+    /// cleared alongside <see cref="LastKnownStationName"/>.</summary>
+    public string? LastKnownStationType
+    {
+        get { lock (_lock) { return _lastKnownStationType; } }
+    }
+
     /// <summary>Raised with the most recently observed commander name, on whatever thread the
     /// underlying <see cref="FileSystemWatcher"/> event fired on.</summary>
     public event Action<string>? CommanderNameChanged;
@@ -37,6 +61,15 @@ public sealed class JournalMonitor : IDisposable
     /// <summary>Raised with the most recently observed current system name, on whatever thread the
     /// underlying <see cref="FileSystemWatcher"/> event fired on.</summary>
     public event Action<string>? SystemLocationChanged;
+
+    /// <summary>Raised with the most recently observed current body name, on whatever thread the
+    /// underlying <see cref="FileSystemWatcher"/> event fired on.</summary>
+    public event Action<string>? BodyLocationChanged;
+
+    /// <summary>Raised with the currently docked station name, or null when an <c>Undocked</c>
+    /// event clears it, on whatever thread the underlying <see cref="FileSystemWatcher"/> event
+    /// fired on.</summary>
+    public event Action<string?>? StationChanged;
 
     public JournalMonitor(string? journalDirectory = null)
     {
@@ -126,6 +159,10 @@ public sealed class JournalMonitor : IDisposable
     {
         string? lastName = null;
         string? lastSystem = null;
+        string? lastBody = null;
+        var stationTouched = false;
+        string? stationName = null;
+        string? stationType = null;
 
         lock (_lock)
         {
@@ -175,11 +212,42 @@ public sealed class JournalMonitor : IDisposable
                     {
                         lastSystem = system;
                     }
+
+                    var body = TryExtractBodyName(trimmedLine);
+                    if (body is not null)
+                    {
+                        lastBody = body;
+                    }
+
+                    var docked = TryExtractDockedStation(trimmedLine);
+                    if (docked is not null)
+                    {
+                        stationTouched = true;
+                        stationName = docked.Value.StationName;
+                        stationType = docked.Value.StationType;
+                    }
+                    else if (IsUndockedEvent(trimmedLine))
+                    {
+                        stationTouched = true;
+                        stationName = null;
+                        stationType = null;
+                    }
                 }
 
                 if (lastSystem is not null)
                 {
                     _lastKnownSystemName = lastSystem;
+                }
+
+                if (lastBody is not null)
+                {
+                    _lastKnownBodyName = lastBody;
+                }
+
+                if (stationTouched)
+                {
+                    _lastKnownStationName = stationName;
+                    _lastKnownStationType = stationType;
                 }
             }
             catch (IOException)
@@ -197,6 +265,16 @@ public sealed class JournalMonitor : IDisposable
         if (lastSystem is not null)
         {
             SystemLocationChanged?.Invoke(lastSystem);
+        }
+
+        if (lastBody is not null)
+        {
+            BodyLocationChanged?.Invoke(lastBody);
+        }
+
+        if (stationTouched)
+        {
+            StationChanged?.Invoke(stationName);
         }
     }
 
@@ -256,6 +334,81 @@ public sealed class JournalMonitor : IDisposable
         catch (JsonException)
         {
             return null;
+        }
+    }
+
+    public static string? TryExtractBodyName(string line)
+    {
+        if (line.Length == 0)
+        {
+            return null;
+        }
+
+        try
+        {
+            using var doc = JsonDocument.Parse(line);
+            var root = doc.RootElement;
+            if (!root.TryGetProperty("event", out var eventProp))
+            {
+                return null;
+            }
+
+            var eventName = eventProp.GetString();
+            if (eventName is not ("ApproachBody" or "SupercruiseExit"))
+            {
+                return null;
+            }
+
+            return root.TryGetProperty("Body", out var bodyProp) ? bodyProp.GetString() : null;
+        }
+        catch (JsonException)
+        {
+            return null;
+        }
+    }
+
+    public static (string? StationName, string? StationType)? TryExtractDockedStation(string line)
+    {
+        if (line.Length == 0)
+        {
+            return null;
+        }
+
+        try
+        {
+            using var doc = JsonDocument.Parse(line);
+            var root = doc.RootElement;
+            if (!root.TryGetProperty("event", out var eventProp) || eventProp.GetString() != "Docked")
+            {
+                return null;
+            }
+
+            var stationName = root.TryGetProperty("StationName", out var nameProp) ? nameProp.GetString() : null;
+            var stationType = root.TryGetProperty("StationType", out var typeProp) ? typeProp.GetString() : null;
+            return (stationName, stationType);
+        }
+        catch (JsonException)
+        {
+            return null;
+        }
+    }
+
+    public static bool IsUndockedEvent(string line)
+    {
+        if (line.Length == 0)
+        {
+            return false;
+        }
+
+        try
+        {
+            using var doc = JsonDocument.Parse(line);
+            var root = doc.RootElement;
+            return root.TryGetProperty("event", out var eventProp) && eventProp.GetString() == "Undocked";
+        }
+        catch (JsonException)
+        {
+            return false;
         }
     }
 

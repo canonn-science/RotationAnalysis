@@ -4,6 +4,7 @@ using System.Reflection;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Navigation;
+using Microsoft.Win32;
 using ModernWpf.Controls;
 using VideoAnalysis.App.Infrastructure;
 using VideoAnalysis.App.ViewModels;
@@ -29,6 +30,7 @@ public partial class MainWindow : Window
         InitializeComponent();
         DataContext = _viewModel;
         _viewModel.VideoSelectionRequested += OnVideoSelectionRequested;
+        _viewModel.VideoLibrary.UploadRequested += OnLibraryUploadRequested;
         _viewModel.Measurements.SubmissionFailed += OnCanonnSubmissionFailed;
         _viewModel.Stations.VideoSelectionRequested += OnStationVideoSelectionRequested;
         _viewModel.JetCone.VideoSelectionRequested += OnJetConeVideoSelectionRequested;
@@ -157,10 +159,28 @@ public partial class MainWindow : Window
 
     private async void OnVideoSelectionRequested(RingRowViewModel row)
     {
-        var promptWindow = new VideoUploadPromptWindow { Owner = this };
-        if (promptWindow.ShowDialog() != true || promptWindow.SelectedFilePath is not string videoPath)
+        string videoPath;
+        var libraryEntry = _viewModel.ActiveLibraryVideo;
+
+        if (libraryEntry is not null && !libraryEntry.IsFileMissing)
         {
-            return;
+            // The library becomes the primary source for a working video once it has one active -
+            // no need to prompt for a fresh file pick.
+            videoPath = libraryEntry.FilePath;
+        }
+        else
+        {
+            var promptWindow = new VideoUploadPromptWindow { Owner = this };
+            if (promptWindow.ShowDialog() != true || promptWindow.SelectedFilePath is not string pickedPath)
+            {
+                return;
+            }
+
+            videoPath = pickedPath;
+            // Funnel every picked video through the library going forward, pre-filled from what
+            // this ring row already knows (system/body/ring) so the user only confirms rather
+            // than re-searching Spansh.
+            libraryEntry = PromptAddVideoToLibrary(videoPath, row);
         }
 
         // Kick this off now rather than waiting for VideoProcessingWindow's Loaded event, so the
@@ -174,6 +194,15 @@ public partial class MainWindow : Window
         {
             var result = processingWindow.Result;
             var finalVideoPath = processingWindow.FinalVideoPath;
+
+            if (libraryEntry is not null && !string.Equals(finalVideoPath, videoPath, StringComparison.OrdinalIgnoreCase))
+            {
+                // The in-place ring-rename flow (VideoRenamePromptWindow/VideoFileNamer) may have
+                // renamed the source file - keep the library entry pointing at the real file
+                // instead of letting it go "missing".
+                _viewModel.VideoLibrary.UpdatePath(libraryEntry, finalVideoPath);
+            }
+
             var resultsWindow = new ResultsWindow(
                 row.Ring.SystemName, row.Ring.BodyName, "Ring:", row.Ring.RingName,
                 row.Ring.EstimatedPeriodSeconds, result, finalVideoPath,
@@ -182,6 +211,10 @@ public partial class MainWindow : Window
             if (resultsWindow.ShowDialog() == true)
             {
                 _viewModel.SaveMeasurement(row, result, finalVideoPath, resultsWindow.SubmittedToCanonn);
+                if (libraryEntry is not null)
+                {
+                    _viewModel.VideoLibrary.MarkAnalyzed(libraryEntry, "RingRotation");
+                }
             }
         }
         else if (processingWindow.FailureMessage is not null)
@@ -193,6 +226,49 @@ public partial class MainWindow : Window
                 CloseButtonText = "OK",
             }.ShowAsync();
         }
+    }
+
+    private void OnLibraryUploadRequested()
+    {
+        var dialog = new OpenFileDialog
+        {
+            Title = "Select a video",
+            Filter = "Video files (*.mp4;*.mkv;*.avi;*.mov;*.wmv)|*.mp4;*.mkv;*.avi;*.mov;*.wmv|All files (*.*)|*.*",
+        };
+
+        if (dialog.ShowDialog(this) != true)
+        {
+            return;
+        }
+
+        PromptAddVideoToLibrary(dialog.FileName);
+    }
+
+    /// <summary>Shows the metadata modal for a freshly picked video and, if the user confirms,
+    /// adds it to the library. <paramref name="prefillRow"/> supplies known system/body/ring
+    /// values (from a Ring Rotation row) so the user doesn't have to re-search Spansh.</summary>
+    private VideoLibraryEntryViewModel? PromptAddVideoToLibrary(string videoPath, RingRowViewModel? prefillRow = null)
+    {
+        var metadataViewModel = prefillRow is null
+            ? new VideoUploadMetadataViewModel(_viewModel.SpanshClient, _viewModel.JournalMonitor)
+            : new VideoUploadMetadataViewModel(
+                _viewModel.SpanshClient,
+                _viewModel.JournalMonitor,
+                prefillSystemName: prefillRow.Ring.SystemName,
+                prefillSystemId64: prefillRow.Ring.SystemId64,
+                prefillSystemX: prefillRow.Ring.SystemX,
+                prefillSystemY: prefillRow.Ring.SystemY,
+                prefillSystemZ: prefillRow.Ring.SystemZ,
+                prefillBodyName: prefillRow.Ring.BodyName,
+                prefillRingName: prefillRow.Ring.RingName);
+
+        var metadataWindow = new VideoUploadMetadataWindow(metadataViewModel, videoPath) { Owner = this };
+        if (metadataWindow.ShowDialog() != true || metadataWindow.ResultEntry is not { } entry)
+        {
+            return null;
+        }
+
+        return _viewModel.VideoLibrary.AddFromUpload(entry);
     }
 
     private async void StationSystemSearchBox_TextChanged(AutoSuggestBox sender, AutoSuggestBoxTextChangedEventArgs args)

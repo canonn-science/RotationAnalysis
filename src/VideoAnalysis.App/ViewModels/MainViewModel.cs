@@ -23,6 +23,7 @@ public sealed class MainViewModel : ObservableObject, IDisposable
     private readonly AppSettingsStore _settingsStore = new();
     private readonly SecretStore _secretStore = new();
     private readonly JournalMonitor _journalMonitor = new();
+    private readonly VideoLibraryStore _videoLibraryStore = new();
 
     private string _systemQuery = string.Empty;
     private string? _errorMessage;
@@ -32,6 +33,7 @@ public sealed class MainViewModel : ObservableObject, IDisposable
     private bool _monitorJournals;
     private bool _overrideUsername;
     private bool _hasClaudeApiKey;
+    private VideoLibraryEntryViewModel? _activeLibraryVideo;
 
     public MainViewModel()
     {
@@ -44,6 +46,8 @@ public sealed class MainViewModel : ObservableObject, IDisposable
         JetCone = new JetConeViewModel();
         LongExposure = new LongExposureViewModel();
         SlitScan = new SlitScanViewModel();
+        VideoLibrary = new VideoLibraryViewModel(_videoLibraryStore);
+        VideoLibrary.EntrySelected += OnLibraryEntrySelected;
         _hasClaudeApiKey = _secretStore.TryGetClaudeApiKey(out _);
         _journalMonitor.CommanderNameChanged += OnJournalCommanderNameChanged;
         if (_monitorJournals)
@@ -118,6 +122,8 @@ public sealed class MainViewModel : ObservableObject, IDisposable
         });
     }
 
+    private void OnJournalCommanderNameChanged(string name)
+    {
         void Apply()
         {
             if (!OverrideUsername)
@@ -135,6 +141,7 @@ public sealed class MainViewModel : ObservableObject, IDisposable
         {
             dispatcher.BeginInvoke((Action)Apply);
         }
+    }
 
     public string? ErrorMessage
     {
@@ -167,6 +174,54 @@ public sealed class MainViewModel : ObservableObject, IDisposable
     public LongExposureViewModel LongExposure { get; }
 
     public SlitScanViewModel SlitScan { get; }
+
+    public VideoLibraryViewModel VideoLibrary { get; }
+
+    /// <summary>The library video currently active for analysis, or null if none is selected /
+    /// its file has gone missing since selection. Ring Rotation's "Select Video…" flow uses this
+    /// directly when set, instead of prompting for a fresh file.</summary>
+    public VideoLibraryEntryViewModel? ActiveLibraryVideo
+    {
+        get => _activeLibraryVideo;
+        private set => SetField(ref _activeLibraryVideo, value);
+    }
+
+    /// <summary>Exposed so the upload metadata modal can read current journal-derived values
+    /// (system/body/station) to pre-fill from, without routing every value through this view model.</summary>
+    public JournalMonitor JournalMonitor => _journalMonitor;
+
+    /// <summary>Exposed so the upload metadata modal can reuse the same Spansh client rather than
+    /// opening a second one.</summary>
+    public SpanshClient SpanshClient => _spanshClient;
+
+    private RingRowViewModel? _selectedRing;
+
+    /// <summary>Bound to the Ring Rotation grid's selection. Auto-set after a library video with
+    /// a known <c>RingName</c> resolves its system, so the matching row is highlighted instead of
+    /// requiring the user to find it themselves.</summary>
+    public RingRowViewModel? SelectedRing
+    {
+        get => _selectedRing;
+        set => SetField(ref _selectedRing, value);
+    }
+
+    private void OnLibraryEntrySelected(VideoLibraryEntryViewModel entry)
+    {
+        ActiveLibraryVideo = entry;
+        if (entry.Entry.SystemId64 is long id64)
+        {
+            var syntheticSystem = new SpanshSearchSystem
+            {
+                Id64 = id64,
+                Name = entry.Entry.SystemName ?? string.Empty,
+                X = entry.Entry.SystemX ?? 0,
+                Y = entry.Entry.SystemY ?? 0,
+                Z = entry.Entry.SystemZ ?? 0,
+            };
+            SystemQuery = syntheticSystem.Name;
+            _ = SubmitAsync(syntheticSystem);
+        }
+    }
 
     public bool HasClaudeApiKey
     {
@@ -268,6 +323,11 @@ public sealed class MainViewModel : ObservableObject, IDisposable
             if (rings.Count == 0)
             {
                 ErrorMessage = $"\"{resolved.Name}\" has no rings or belts.";
+            }
+
+            if (ActiveLibraryVideo?.Entry.RingName is string wantedRingName)
+            {
+                SelectedRing = Rings.FirstOrDefault(r => r.Ring.RingName == wantedRingName);
             }
         }
         catch (Exception ex)

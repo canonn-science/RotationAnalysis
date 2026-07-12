@@ -43,7 +43,18 @@
             </Grid>
         </Border>
 
-        <TabControl Grid.Row="1" Margin="12">
+        <Grid Grid.Row="1" Margin="12">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="20*" MinWidth="300"/>
+                <ColumnDefinition Width="Auto"/>
+                <ColumnDefinition Width="80*"/>
+            </Grid.ColumnDefinitions>
+
+            <views:VideoLibraryPanel Grid.Column="0" DataContext="{Binding VideoLibrary}"/>
+            <GridSplitter Grid.Column="1" Width="4" HorizontalAlignment="Stretch"
+                          Background="{StaticResource CanonnBorderBrush}"/>
+
+        <TabControl Grid.Column="2">
             <TabItem Header="Ring Rotation">
                 <TabControl Margin="0,8,0,0">
                     <TabItem Header="System">
@@ -91,6 +102,7 @@
                                        Visibility="{Binding ResolvedSystemName, Converter={StaticResource StringToVisibility}}"/>
 
                             <DataGrid Grid.Row="4" ItemsSource="{Binding Rings}" AutoGenerateColumns="False"
+                                      SelectedItem="{Binding SelectedRing, Mode=TwoWay}"
                                       IsReadOnly="True" CanUserAddRows="False" Margin="0,4,0,0"
                                       SelectionUnit="CellOrRowHeader" SelectionMode="Extended" HeadersVisibility="All"
                                       Background="{StaticResource CanonnSurface2Brush}"
@@ -599,5 +611,6 @@
                 </Grid>
             </TabItem>
         </TabControl>
+        </Grid>
     </Grid>
 </Window>
