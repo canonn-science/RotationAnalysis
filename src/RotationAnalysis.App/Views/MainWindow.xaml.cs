@@ -525,7 +525,7 @@ public partial class MainWindow : Window
         resultsWindow.ShowDialog();
     }
 
-    private void SlitScanUploadButton_Click(object sender, RoutedEventArgs e)
+    private async void SlitScanUploadButton_Click(object sender, RoutedEventArgs e)
     {
         var promptWindow = new VideoUploadPromptWindow { Owner = this };
         if (promptWindow.ShowDialog() != true || promptWindow.SelectedFilePath is not string videoPath)
@@ -535,6 +535,23 @@ public partial class MainWindow : Window
 
         _viewModel.SlitScan.ErrorMessage = null;
         _viewModel.SlitScan.VideoFilePath = videoPath;
+        SlitScanControls.SetPreviewFrame(null);
+
+        byte[]? previewFrame;
+        try
+        {
+            previewFrame = await _viewModel.SlitScan.LoadPreviewFrameAsync(CancellationToken.None);
+        }
+        catch
+        {
+            previewFrame = null;
+        }
+
+        // The user may have uploaded a different video (or left the tab) while this was loading.
+        if (_viewModel.SlitScan.VideoFilePath == videoPath)
+        {
+            SlitScanControls.SetPreviewFrame(previewFrame);
+        }
     }
 
     private async void SlitScanGenerateButton_Click(object sender, RoutedEventArgs e)
@@ -549,6 +566,7 @@ public partial class MainWindow : Window
         var parameters = SlitScanControls.BuildParameters();
         if (parameters is null)
         {
+            _viewModel.SlitScan.ErrorMessage = SlitScanControls.LastValidationError;
             return;
         }
 
@@ -580,8 +598,21 @@ public partial class MainWindow : Window
         resultsWindow.ShowDialog();
     }
 
-    private void SlitScanResetButton_Click(object sender, RoutedEventArgs e)
+    private async void SlitScanResetButton_Click(object sender, RoutedEventArgs e)
     {
+        var confirmResult = await new ContentDialog
+        {
+            Title = "Reset Slit Scan controls?",
+            Content = "All Geometry, Motion, Sampling, Compositing, and Output settings will be restored to their defaults. This can't be undone.",
+            PrimaryButtonText = "Reset",
+            CloseButtonText = "Cancel",
+        }.ShowAsync();
+
+        if (confirmResult != ContentDialogResult.Primary)
+        {
+            return;
+        }
+
         SlitScanControls.ResetToDefaults();
     }
 }

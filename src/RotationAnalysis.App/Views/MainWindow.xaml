@@ -475,15 +475,18 @@
                                TextWrapping="Wrap"
                                Visibility="{Binding ErrorMessage, Converter={StaticResource StringToVisibility}}"/>
 
-                    <ScrollViewer Grid.Row="2" Margin="0,12,0,0" VerticalScrollBarVisibility="Auto">
+                    <ScrollViewer Grid.Row="2" Margin="0,12,0,0" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Auto">
                         <views:SlitScanControlPanel x:Name="SlitScanControls"/>
                     </ScrollViewer>
 
                     <StackPanel Grid.Row="3" Orientation="Horizontal" Margin="0,16,0,0">
-                        <Button Content="Generate Slit Scan" Padding="24,8" Margin="0,0,8,0"
+                        <Button Content="Generate Slit Scan" Padding="24,8"
                                 Background="{StaticResource CanonnAccentBrush}" Foreground="White"
                                 Click="SlitScanGenerateButton_Click"/>
-                        <Button Content="Reset Controls" Padding="16,8" Click="SlitScanResetButton_Click"/>
+                        <Button Content="Reset Controls" Padding="16,6" Margin="24,0,0,0"
+                                Background="Transparent" BorderBrush="{StaticResource CanonnBorderBrush}"
+                                Foreground="{StaticResource CanonnTextMutedBrush}"
+                                Click="SlitScanResetButton_Click"/>
                     </StackPanel>
                 </Grid>
             </TabItem>

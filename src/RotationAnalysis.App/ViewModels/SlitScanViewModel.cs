@@ -38,4 +38,11 @@ public sealed class SlitScanViewModel : ObservableObject
 
     public Task<SlitScanResult> GenerateAsync(string videoPath, SlitScanParameters parameters, IProgress<VideoAnalysisProgress> progress, CancellationToken ct)
         => SlitScanProcessor.GenerateAsync(videoPath, parameters, progress, ct);
+
+    /// <summary>A single representative frame (PNG bytes), for the geometry-guide preview - null
+    /// if there's no video yet or the frame couldn't be read.</summary>
+    public Task<byte[]?> LoadPreviewFrameAsync(CancellationToken ct)
+        => VideoFilePath is null
+            ? Task.FromResult<byte[]?>(null)
+            : SlitScanPreviewFrameReader.ReadRepresentativeFrameAsync(VideoFilePath, ct);
 }
