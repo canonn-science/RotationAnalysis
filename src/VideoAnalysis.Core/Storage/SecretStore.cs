@@ -44,6 +44,11 @@ public sealed class SecretStore
             // than crashing the app.
             return false;
         }
+        catch (Exception)
+        {
+            // IO/permission/corruption errors - treat as "no key set" rather than crashing the app.
+            return false;
+        }
     }
 
     public void SetClaudeApiKey(string apiKey)
