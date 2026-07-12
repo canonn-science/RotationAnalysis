@@ -96,6 +96,12 @@ public sealed class MainViewModel : ObservableObject, IDisposable
         private set => SetField(ref _hasClaudeApiKey, value);
     }
 
+    public void SetClaudeApiKey(string apiKey)
+    {
+        _secretStore.SetClaudeApiKey(apiKey);
+        HasClaudeApiKey = true;
+    }
+
     public void DeleteClaudeApiKey()
     {
         _secretStore.DeleteClaudeApiKey();
