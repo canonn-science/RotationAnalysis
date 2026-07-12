@@ -1,0 +1,20 @@
+name: Feature Request
+description: Suggest a new feature or enhancement
+title: "FEATURE: "
+labels:
+  - enhancement
+body:
+  - type: textarea
+    id: description
+    attributes:
+      label: Description
+      description: What feature would you like to see, and why?
+    validations:
+      required: true
+  - type: textarea
+    id: additional-context
+    attributes:
+      label: Additional context
+      description: Any other context, screenshots, or examples.
+    validations:
+      required: false
