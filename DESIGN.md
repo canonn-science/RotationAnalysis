@@ -1,4 +1,4 @@
-# Rotation Analysis Lab
+# Video Analysis Lab
 
 An application used to calculate the rotation speed of planetary ring systems in Elite Dangerous, for Canonn's citizen-science ring-rotation project.
 
@@ -118,7 +118,7 @@ transparently, the first time the app runs against an old CSV, rather than a ver
 
 The title bar shows the commander name ("CMDR Your Name Here" until set) beside the Canonn logo.
 Clicking it opens a small dialog to edit it. It's persisted as JSON at
-`%LocalAppData%\RotationAnalysisLab\settings.json` (`AppSettingsStore`) and restored on launch.
+`%LocalAppData%\VideoAnalysisLab\settings.json` (`AppSettingsStore`) and restored on launch.
 
 ## Submitting to Canonn
 

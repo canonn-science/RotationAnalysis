@@ -1,6 +1,6 @@
-# Rotation Analysis Lab
+# Video Analysis Lab
 
-Rotation Analysis Lab is a Windows desktop app for **Elite Dangerous** explorers doing ring-rotation citizen science with [Canonn](https://canonn.science). It estimates how fast a planetary ring or belt is rotating using orbital mechanics, tells you how long a video you need to record to confirm it, and then measures the actual rotation period from that video by tracking the apparent motion of background stars.
+Video Analysis Lab is a Windows desktop app for **Elite Dangerous** explorers doing ring-rotation citizen science with [Canonn](https://canonn.science). It estimates how fast a planetary ring or belt is rotating using orbital mechanics, tells you how long a video you need to record to confirm it, and then measures the actual rotation period from that video by tracking the apparent motion of background stars.
 
 ## Who it's for
 
@@ -19,4 +19,4 @@ Anyone recording ring-rotation footage for Canonn, or processing footage that's 
 
 ## Download
 
-[⬇ Download latest release (Windows, self-contained, no .NET install required)](https://github.com/canonn-science/RotationAnalysis/releases/latest)
+[⬇ Download latest release (Windows, self-contained, no .NET install required)](https://github.com/canonn-science/VideoAnalysis/releases/latest)
