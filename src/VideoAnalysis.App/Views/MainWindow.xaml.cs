@@ -145,29 +145,6 @@ public partial class MainWindow : Window
         await _viewModel.SubmitAsync(null);
     }
 
-    private async void CommanderNameButton_Click(object sender, RoutedEventArgs e)
-    {
-        var input = new TextBox { Text = _viewModel.CommanderName, MinWidth = 260 };
-        var dialog = new ContentDialog
-        {
-            Title = "Commander name",
-            Content = input,
-            PrimaryButtonText = "Save",
-            CloseButtonText = "Cancel",
-            DefaultButton = ContentDialogButton.Primary,
-        };
-        input.Loaded += (_, _) => input.SelectAll();
-
-        if (await dialog.ShowAsync() == ContentDialogResult.Primary)
-        {
-            var name = input.Text.Trim();
-            if (name.Length > 0)
-            {
-                _viewModel.CommanderName = name;
-            }
-        }
-    }
-
     private async void OnCanonnSubmissionFailed(string message)
     {
         await new ContentDialog
@@ -297,8 +274,47 @@ public partial class MainWindow : Window
         }
     }
 
-    private void DeleteClaudeApiKeyButton_Click(object sender, RoutedEventArgs e)
+    private async void AddReplaceClaudeApiKeyButton_Click(object sender, RoutedEventArgs e)
     {
+        var input = new PasswordBox { MinWidth = 320 };
+        var dialog = new ContentDialog
+        {
+            Title = "Claude API key",
+            Content = input,
+            PrimaryButtonText = "Save",
+            CloseButtonText = "Cancel",
+            DefaultButton = ContentDialogButton.Primary,
+        };
+        input.Loaded += (_, _) => input.Focus();
+
+        if (await dialog.ShowAsync() != ContentDialogResult.Primary)
+        {
+            return;
+        }
+
+        var key = input.Password.Trim();
+        if (key.Length > 0)
+        {
+            _viewModel.SetClaudeApiKey(key);
+            UpdateClaudeApiKeyStatusText();
+        }
+    }
+
+    private async void DeleteClaudeApiKeyButton_Click(object sender, RoutedEventArgs e)
+    {
+        var confirmResult = await new ContentDialog
+        {
+            Title = "Delete Claude API key?",
+            Content = "You'll need to enter a new key to use Claude's vision model again.",
+            PrimaryButtonText = "Delete",
+            CloseButtonText = "Cancel",
+        }.ShowAsync();
+
+        if (confirmResult != ContentDialogResult.Primary)
+        {
+            return;
+        }
+
         _viewModel.DeleteClaudeApiKey();
         UpdateClaudeApiKeyStatusText();
     }

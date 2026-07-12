@@ -1,9 +1,11 @@
 using System.Collections.ObjectModel;
 using System.IO;
+using System.Windows;
 using VideoAnalysis.App.Infrastructure;
 using VideoAnalysis.Core.Canonn;
 using VideoAnalysis.Core.Diagnostics;
 using VideoAnalysis.Core.Domain;
+using VideoAnalysis.Core.Journal;
 using VideoAnalysis.Core.Spansh;
 using VideoAnalysis.Core.Spansh.Models;
 using VideoAnalysis.Core.Storage;
@@ -20,23 +22,34 @@ public sealed class MainViewModel : ObservableObject, IDisposable
     private readonly MeasurementCsvStore _measurementStore = new();
     private readonly AppSettingsStore _settingsStore = new();
     private readonly SecretStore _secretStore = new();
+    private readonly JournalMonitor _journalMonitor = new();
 
     private string _systemQuery = string.Empty;
     private string? _errorMessage;
     private bool _isBusy;
     private string? _resolvedSystemName;
     private string _commanderName;
+    private bool _monitorJournals;
+    private bool _overrideUsername;
     private bool _hasClaudeApiKey;
 
     public MainViewModel()
     {
-        _commanderName = _settingsStore.Load().CommanderName ?? DefaultCommanderName;
+        var settings = _settingsStore.Load();
+        _commanderName = settings.CommanderName ?? DefaultCommanderName;
+        _monitorJournals = settings.MonitorJournals;
+        _overrideUsername = settings.OverrideUsername;
         Measurements = new MeasurementsViewModel(_measurementStore, SubmitRecordToCanonnAsync, () => CommanderName);
         Stations = new StationViewModel();
         JetCone = new JetConeViewModel();
         LongExposure = new LongExposureViewModel();
         SlitScan = new SlitScanViewModel();
         _hasClaudeApiKey = _secretStore.TryGetClaudeApiKey(out _);
+        _journalMonitor.CommanderNameChanged += OnJournalCommanderNameChanged;
+        if (_monitorJournals)
+        {
+            _journalMonitor.Start();
+        }
         _ = LoadSubmittedFromCanonnAsync();
     }
 
@@ -53,9 +66,67 @@ public sealed class MainViewModel : ObservableObject, IDisposable
         {
             if (SetField(ref _commanderName, value))
             {
-                _settingsStore.Save(new AppSettings { CommanderName = value });
+                PersistSettings();
             }
         }
+    }
+
+    /// <summary>When enabled, watches the Elite Dangerous journal folder and keeps
+    /// <see cref="CommanderName"/> in sync with the game, unless <see cref="OverrideUsername"/>
+    /// is set.</summary>
+    public bool MonitorJournals
+    {
+        get => _monitorJournals;
+        set
+        {
+            if (SetField(ref _monitorJournals, value))
+            {
+                PersistSettings();
+                if (value)
+                {
+                    _journalMonitor.Start();
+                }
+                else
+                {
+                    _journalMonitor.Stop();
+                }
+            }
+        }
+    }
+
+    /// <summary>When set, <see cref="CommanderName"/> is edited manually and journal-detected
+    /// names are ignored instead of overwriting it.</summary>
+    public bool OverrideUsername
+    {
+        get => _overrideUsername;
+        set
+        {
+            if (SetField(ref _overrideUsername, value))
+            {
+                PersistSettings();
+            }
+        }
+    }
+
+    private void PersistSettings()
+    {
+        _settingsStore.Save(new AppSettings
+        {
+            CommanderName = _commanderName,
+            MonitorJournals = _monitorJournals,
+            OverrideUsername = _overrideUsername,
+        });
+    }
+
+    private void OnJournalCommanderNameChanged(string name)
+    {
+        Application.Current.Dispatcher.Invoke(() =>
+        {
+            if (!OverrideUsername)
+            {
+                CommanderName = name;
+            }
+        });
     }
 
     public string? ErrorMessage
@@ -302,6 +373,7 @@ public sealed class MainViewModel : ObservableObject, IDisposable
     {
         _spanshClient.Dispose();
         _canonnClient.Dispose();
+        _journalMonitor.Dispose();
         Stations.Dispose();
         JetCone.Dispose();
         LongExposure.Dispose();
