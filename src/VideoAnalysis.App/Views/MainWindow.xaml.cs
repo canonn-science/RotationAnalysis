@@ -450,7 +450,7 @@ public partial class MainWindow : Window
             var key = input.Password.Trim();
             if (key.Length > 0)
             {
-                _viewModel.JetCone.SetClaudeApiKey(key);
+                _viewModel.SetClaudeApiKey(key);
                 UpdateClaudeApiKeyStatusText();
             }
         }
