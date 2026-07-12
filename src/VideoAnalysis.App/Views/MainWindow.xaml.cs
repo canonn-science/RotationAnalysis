@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using System.IO;
 using System.Reflection;
 using System.Windows;
 using System.Windows.Controls;
@@ -19,6 +20,9 @@ public partial class MainWindow : Window
     private readonly MainViewModel _viewModel = new();
     private readonly UpdateChecker _updateChecker = new();
     private CancellationTokenSource? _searchDebounceCts;
+    private CancellationTokenSource? _stationSearchDebounceCts;
+    private CancellationTokenSource? _jetConeSearchDebounceCts;
+    private CancellationTokenSource? _longExposureSearchDebounceCts;
 
     public MainWindow()
     {
@@ -26,6 +30,9 @@ public partial class MainWindow : Window
         DataContext = _viewModel;
         _viewModel.VideoSelectionRequested += OnVideoSelectionRequested;
         _viewModel.Measurements.SubmissionFailed += OnCanonnSubmissionFailed;
+        _viewModel.Stations.VideoSelectionRequested += OnStationVideoSelectionRequested;
+        _viewModel.JetCone.VideoSelectionRequested += OnJetConeVideoSelectionRequested;
+        _viewModel.LongExposure.VideoSelectionRequested += OnLongExposureVideoSelectionRequested;
         Closed += (_, _) =>
         {
             _viewModel.Dispose();
@@ -33,6 +40,12 @@ public partial class MainWindow : Window
         };
         Loaded += async (_, _) => await CheckForUpdatesAsync();
         VersionText.Text = $"Version v{GetCurrentVersion().ToString(3)}";
+        UpdateClaudeApiKeyStatusText();
+    }
+
+    private void UpdateClaudeApiKeyStatusText()
+    {
+        ClaudeApiKeyStatusText.Text = _viewModel.HasClaudeApiKey ? "A key is configured." : "No key configured.";
     }
 
     private static Version GetCurrentVersion() => Assembly.GetExecutingAssembly().GetName().Version ?? new Version(0, 0, 0);
@@ -177,16 +190,21 @@ public partial class MainWindow : Window
         // shell round-trip overlaps window construction/layout instead of starting after it.
         var quickMetadataTask = Task.Run(() => QuickVideoMetadataReader.Read(videoPath));
 
-        var processingWindow = new VideoProcessingWindow(_viewModel, videoPath, row.Ring.EstimatedPeriodSeconds, quickMetadataTask, row.Ring.RingName) { Owner = this };
+        var processingWindow = new VideoProcessingWindow(_viewModel.AnalyzeVideoAsync, videoPath, row.Ring.EstimatedPeriodSeconds, quickMetadataTask, row.Ring.RingName) { Owner = this };
         var completed = processingWindow.ShowDialog();
 
         if (completed == true && processingWindow.Result is not null)
         {
+            var result = processingWindow.Result;
             var finalVideoPath = processingWindow.FinalVideoPath;
-            var resultsWindow = new ResultsWindow(_viewModel, row, processingWindow.Result, finalVideoPath) { Owner = this };
+            var resultsWindow = new ResultsWindow(
+                row.Ring.SystemName, row.Ring.BodyName, "Ring:", row.Ring.RingName,
+                row.Ring.EstimatedPeriodSeconds, result, finalVideoPath,
+                ct => _viewModel.SubmitMeasurementToCanonnAsync(row, result, ct))
+            { Owner = this };
             if (resultsWindow.ShowDialog() == true)
             {
-                _viewModel.SaveMeasurement(row, processingWindow.Result, finalVideoPath, resultsWindow.SubmittedToCanonn);
+                _viewModel.SaveMeasurement(row, result, finalVideoPath, resultsWindow.SubmittedToCanonn);
             }
         }
         else if (processingWindow.FailureMessage is not null)
@@ -198,5 +216,403 @@ public partial class MainWindow : Window
                 CloseButtonText = "OK",
             }.ShowAsync();
         }
+    }
+
+    private async void StationSystemSearchBox_TextChanged(AutoSuggestBox sender, AutoSuggestBoxTextChangedEventArgs args)
+    {
+        if (args.Reason != AutoSuggestionBoxTextChangeReason.UserInput)
+        {
+            return;
+        }
+
+        _stationSearchDebounceCts?.Cancel();
+        var cts = new CancellationTokenSource();
+        _stationSearchDebounceCts = cts;
+
+        try
+        {
+            await Task.Delay(300, cts.Token);
+            await _viewModel.Stations.RefreshSuggestionsAsync(sender.Text, cts.Token);
+        }
+        catch (OperationCanceledException)
+        {
+            // superseded by a newer keystroke
+        }
+    }
+
+    private async void StationSystemSearchBox_SuggestionChosen(AutoSuggestBox sender, AutoSuggestBoxSuggestionChosenEventArgs args)
+    {
+        if (args.SelectedItem is Core.Spansh.Models.SpanshSearchSystem system)
+        {
+            await _viewModel.Stations.SubmitAsync(system);
+        }
+    }
+
+    private async void StationSystemSearchBox_QuerySubmitted(AutoSuggestBox sender, AutoSuggestBoxQuerySubmittedEventArgs args)
+    {
+        var chosen = args.ChosenSuggestion as Core.Spansh.Models.SpanshSearchSystem;
+        await _viewModel.Stations.SubmitAsync(chosen);
+    }
+
+    private async void StationSubmitButton_Click(object sender, RoutedEventArgs e)
+    {
+        await _viewModel.Stations.SubmitAsync(null);
+    }
+
+    private async void OnStationVideoSelectionRequested(StationRowViewModel row)
+    {
+        var promptWindow = new VideoUploadPromptWindow { Owner = this };
+        if (promptWindow.ShowDialog() != true || promptWindow.SelectedFilePath is not string videoPath)
+        {
+            return;
+        }
+
+        var quickMetadataTask = Task.Run(() => QuickVideoMetadataReader.Read(videoPath));
+
+        var processingWindow = new VideoProcessingWindow(_viewModel.Stations.AnalyzeVideoAsync, videoPath, row.Station.EstimatedRotationSeconds, quickMetadataTask, row.Station.StationName) { Owner = this };
+        var completed = processingWindow.ShowDialog();
+
+        if (completed == true && processingWindow.Result is not null)
+        {
+            var result = processingWindow.Result;
+            var finalVideoPath = processingWindow.FinalVideoPath;
+            var resultsWindow = new ResultsWindow(
+                row.Station.SystemName, row.Station.BodyName ?? "N/A", "Station:", row.Station.StationName,
+                row.Station.EstimatedRotationSeconds, result, finalVideoPath,
+                submitToCanonn: null)
+            { Owner = this };
+            if (resultsWindow.ShowDialog() == true)
+            {
+                _viewModel.Stations.SaveMeasurement(row, result, finalVideoPath);
+            }
+        }
+        else if (processingWindow.FailureMessage is not null)
+        {
+            await new ContentDialog
+            {
+                Title = "Video analysis failed",
+                Content = processingWindow.FailureMessage,
+                CloseButtonText = "OK",
+            }.ShowAsync();
+        }
+    }
+
+    private void DeleteClaudeApiKeyButton_Click(object sender, RoutedEventArgs e)
+    {
+        _viewModel.DeleteClaudeApiKey();
+        UpdateClaudeApiKeyStatusText();
+    }
+
+    private async void JetConeSystemSearchBox_TextChanged(AutoSuggestBox sender, AutoSuggestBoxTextChangedEventArgs args)
+    {
+        if (args.Reason != AutoSuggestionBoxTextChangeReason.UserInput)
+        {
+            return;
+        }
+
+        _jetConeSearchDebounceCts?.Cancel();
+        var cts = new CancellationTokenSource();
+        _jetConeSearchDebounceCts = cts;
+
+        try
+        {
+            await Task.Delay(300, cts.Token);
+            await _viewModel.JetCone.RefreshSuggestionsAsync(sender.Text, cts.Token);
+        }
+        catch (OperationCanceledException)
+        {
+            // superseded by a newer keystroke
+        }
+    }
+
+    private async void JetConeSystemSearchBox_SuggestionChosen(AutoSuggestBox sender, AutoSuggestBoxSuggestionChosenEventArgs args)
+    {
+        if (args.SelectedItem is Core.Spansh.Models.SpanshSearchSystem system)
+        {
+            await _viewModel.JetCone.SubmitAsync(system);
+        }
+    }
+
+    private async void JetConeSystemSearchBox_QuerySubmitted(AutoSuggestBox sender, AutoSuggestBoxQuerySubmittedEventArgs args)
+    {
+        var chosen = args.ChosenSuggestion as Core.Spansh.Models.SpanshSearchSystem;
+        await _viewModel.JetCone.SubmitAsync(chosen);
+    }
+
+    private async void JetConeSubmitButton_Click(object sender, RoutedEventArgs e)
+    {
+        await _viewModel.JetCone.SubmitAsync(null);
+    }
+
+    /// <summary>Local-OCR confidence (0-1) below which a configured Claude key is used
+    /// automatically instead of the local guess. HudDistanceReader's heuristic classifier
+    /// reliably scores well below this on real footage - see its class doc comment - so in
+    /// practice this means Claude is tried whenever a key is present, and the local guess is
+    /// mostly a fallback for when no key is configured yet.</summary>
+    private const double TrustedLocalConfidenceThreshold = 0.55;
+
+    private async void OnJetConeVideoSelectionRequested(JetConeRowViewModel row)
+    {
+        var promptWindow = new VideoUploadPromptWindow { Owner = this };
+        if (promptWindow.ShowDialog() != true || promptWindow.SelectedFilePath is not string videoPath)
+        {
+            return;
+        }
+
+        var processingWindow = new JetConeProcessingWindow(_viewModel.JetCone.AnalyzeVideoAsync, videoPath) { Owner = this };
+        if (processingWindow.ShowDialog() != true || processingWindow.Result is not { } result)
+        {
+            if (processingWindow.FailureMessage is not null)
+            {
+                await new ContentDialog
+                {
+                    Title = "Jet cone analysis failed",
+                    Content = processingWindow.FailureMessage,
+                    CloseButtonText = "OK",
+                }.ShowAsync();
+            }
+            return;
+        }
+
+        if (!result.OnsetDetected)
+        {
+            await new ContentDialog
+            {
+                Title = "Warning overlay not found",
+                Content = "Couldn't find the \"FSD OPERATING / BEYOND SAFETY LIMITS\" warning in this recording. Make sure it shows the approach all the way through the warning appearing.",
+                CloseButtonText = "OK",
+            }.ShowAsync();
+            return;
+        }
+
+        double? prefill = result.LocalDistanceLs;
+        string sourceLabel = result.LocalConfidence >= TrustedLocalConfidenceThreshold
+            ? $"Local reading (confidence {result.LocalConfidence:P0})"
+            : $"Local reading, low confidence ({result.LocalConfidence:P0}) - please verify";
+
+        if (result.LocalConfidence < TrustedLocalConfidenceThreshold && _viewModel.JetCone.HasClaudeApiKey)
+        {
+            try
+            {
+                var claudeReading = await _viewModel.JetCone.ReadDistanceWithClaudeAsync(result.BottomLeftCropPng);
+                prefill = claudeReading.DistanceLs;
+                sourceLabel = $"Claude vision (confidence {claudeReading.Confidence}%)";
+            }
+            catch (Exception ex)
+            {
+                AppLog.LogError("ClaudeVisionFallback", ex);
+                // Fall through with the local guess already assigned above.
+            }
+        }
+
+        var reviewWindow = new JetConeReviewWindow(result.ReticleCropPng, result.BottomLeftCropPng, prefill, sourceLabel) { Owner = this };
+        if (reviewWindow.ShowDialog() != true)
+        {
+            return;
+        }
+
+        if (reviewWindow.UserCorrectedValue && !_viewModel.JetCone.HasClaudeApiKey)
+        {
+            await OfferClaudeApiKeySetupAsync();
+        }
+
+        _viewModel.JetCone.SaveMeasurement(row, reviewWindow.DistanceLs);
+    }
+
+    private async Task OfferClaudeApiKeySetupAsync()
+    {
+        var offer = await new ContentDialog
+        {
+            Title = "Improve future readings?",
+            Content = "Local text recognition struggled with this frame. Want to provide a Claude API key so future readings like this can use Claude's vision model instead? You can remove it any time from the About tab.",
+            PrimaryButtonText = "Add API Key",
+            CloseButtonText = "Not now",
+        }.ShowAsync();
+
+        if (offer != ContentDialogResult.Primary)
+        {
+            return;
+        }
+
+        var input = new PasswordBox { MinWidth = 320 };
+        var keyDialog = new ContentDialog
+        {
+            Title = "Claude API key",
+            Content = input,
+            PrimaryButtonText = "Save",
+            CloseButtonText = "Cancel",
+            DefaultButton = ContentDialogButton.Primary,
+        };
+        input.Loaded += (_, _) => input.Focus();
+
+        if (await keyDialog.ShowAsync() == ContentDialogResult.Primary)
+        {
+            var key = input.Password.Trim();
+            if (key.Length > 0)
+            {
+                _viewModel.SetClaudeApiKey(key);
+                UpdateClaudeApiKeyStatusText();
+            }
+        }
+    }
+
+    private async void LongExposureSystemSearchBox_TextChanged(AutoSuggestBox sender, AutoSuggestBoxTextChangedEventArgs args)
+    {
+        if (args.Reason != AutoSuggestionBoxTextChangeReason.UserInput)
+        {
+            return;
+        }
+
+        _longExposureSearchDebounceCts?.Cancel();
+        var cts = new CancellationTokenSource();
+        _longExposureSearchDebounceCts = cts;
+
+        try
+        {
+            await Task.Delay(300, cts.Token);
+            await _viewModel.LongExposure.RefreshSuggestionsAsync(sender.Text, cts.Token);
+        }
+        catch (OperationCanceledException)
+        {
+            // superseded by a newer keystroke
+        }
+    }
+
+    private async void LongExposureSystemSearchBox_SuggestionChosen(AutoSuggestBox sender, AutoSuggestBoxSuggestionChosenEventArgs args)
+    {
+        if (args.SelectedItem is Core.Spansh.Models.SpanshSearchSystem system)
+        {
+            await _viewModel.LongExposure.SubmitAsync(system);
+        }
+    }
+
+    private async void LongExposureSystemSearchBox_QuerySubmitted(AutoSuggestBox sender, AutoSuggestBoxQuerySubmittedEventArgs args)
+    {
+        var chosen = args.ChosenSuggestion as Core.Spansh.Models.SpanshSearchSystem;
+        await _viewModel.LongExposure.SubmitAsync(chosen);
+    }
+
+    private async void LongExposureSubmitButton_Click(object sender, RoutedEventArgs e)
+    {
+        await _viewModel.LongExposure.SubmitAsync(null);
+    }
+
+    private async void OnLongExposureVideoSelectionRequested(LongExposureRowViewModel row)
+    {
+        var promptWindow = new VideoUploadPromptWindow { Owner = this };
+        if (promptWindow.ShowDialog() != true || promptWindow.SelectedFilePath is not string videoPath)
+        {
+            return;
+        }
+
+        var processingWindow = new LongExposureProcessingWindow(_viewModel.LongExposure.GenerateAsync, videoPath) { Owner = this };
+        if (processingWindow.ShowDialog() != true || processingWindow.Result is not { } result)
+        {
+            if (processingWindow.FailureMessage is not null)
+            {
+                await new ContentDialog
+                {
+                    Title = "Long exposure generation failed",
+                    Content = processingWindow.FailureMessage,
+                    CloseButtonText = "OK",
+                }.ShowAsync();
+            }
+            return;
+        }
+
+        var resultsWindow = LongExposureResultsWindow.ForLongExposureResult(result, row.Target.SystemName, row.Target.ObjectName);
+        resultsWindow.Owner = this;
+        resultsWindow.ShowDialog();
+    }
+
+    private async void SlitScanUploadButton_Click(object sender, RoutedEventArgs e)
+    {
+        var promptWindow = new VideoUploadPromptWindow { Owner = this };
+        if (promptWindow.ShowDialog() != true || promptWindow.SelectedFilePath is not string videoPath)
+        {
+            return;
+        }
+
+        _viewModel.SlitScan.ErrorMessage = null;
+        _viewModel.SlitScan.VideoFilePath = videoPath;
+        SlitScanControls.SetPreviewFrame(null);
+
+        byte[]? previewFrame;
+        try
+        {
+            previewFrame = await _viewModel.SlitScan.LoadPreviewFrameAsync(CancellationToken.None);
+        }
+        catch
+        {
+            previewFrame = null;
+        }
+
+        // The user may have uploaded a different video (or left the tab) while this was loading.
+        if (_viewModel.SlitScan.VideoFilePath == videoPath)
+        {
+            SlitScanControls.SetPreviewFrame(previewFrame);
+        }
+    }
+
+    private async void SlitScanGenerateButton_Click(object sender, RoutedEventArgs e)
+    {
+        var videoPath = _viewModel.SlitScan.VideoFilePath;
+        if (videoPath is null)
+        {
+            _viewModel.SlitScan.ErrorMessage = "Upload a video first.";
+            return;
+        }
+
+        var parameters = SlitScanControls.BuildParameters();
+        if (parameters is null)
+        {
+            _viewModel.SlitScan.ErrorMessage = SlitScanControls.LastValidationError;
+            return;
+        }
+
+        _viewModel.SlitScan.ErrorMessage = null;
+
+        var processingWindow = new SlitScanProcessingWindow(
+            (path, progress, ct) => _viewModel.SlitScan.GenerateAsync(path, parameters, progress, ct),
+            videoPath)
+        { Owner = this };
+        if (processingWindow.ShowDialog() != true || processingWindow.Result is not { } result)
+        {
+            if (processingWindow.FailureMessage is not null)
+            {
+                await new ContentDialog
+                {
+                    Title = "Slit scan generation failed",
+                    Content = processingWindow.FailureMessage,
+                    CloseButtonText = "OK",
+                }.ShowAsync();
+            }
+            return;
+        }
+
+        var resultsWindow = new LongExposureResultsWindow(
+            new[] { ("Slit Scan", result.ImagePng) },
+            Path.GetFileNameWithoutExtension(videoPath),
+            null)
+        { Owner = this };
+        resultsWindow.ShowDialog();
+    }
+
+    private async void SlitScanResetButton_Click(object sender, RoutedEventArgs e)
+    {
+        var confirmResult = await new ContentDialog
+        {
+            Title = "Reset Slit Scan controls?",
+            Content = "All Geometry, Motion, Sampling, Compositing, and Output settings will be restored to their defaults. This can't be undone.",
+            PrimaryButtonText = "Reset",
+            CloseButtonText = "Cancel",
+        }.ShowAsync();
+
+        if (confirmResult != ContentDialogResult.Primary)
+        {
+            return;
+        }
+
+        SlitScanControls.ResetToDefaults();
     }
 }

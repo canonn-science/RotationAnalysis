@@ -2,7 +2,6 @@ using System.IO;
 using System.Windows;
 using System.Windows.Media.Imaging;
 using VideoAnalysis.App.Infrastructure;
-using VideoAnalysis.App.ViewModels;
 using VideoAnalysis.Core.Diagnostics;
 using VideoAnalysis.Core.Storage;
 using VideoAnalysis.Core.VideoAnalysis;
@@ -11,8 +10,8 @@ namespace VideoAnalysis.App.Views;
 
 public partial class VideoProcessingWindow : Window
 {
-    private readonly MainViewModel _viewModel;
-    private readonly string _ringName;
+    private readonly Func<string, double?, IProgress<VideoAnalysisProgress>, CancellationToken, Task<HorizontalVideoAnalysisResult>> _analyzeVideo;
+    private readonly string _objectName;
     private readonly double? _seedPeriodSeconds;
     private readonly Task<QuickVideoMetadata> _quickMetadataTask;
     private readonly CancellationTokenSource _cts = new();
@@ -29,14 +28,23 @@ public partial class VideoProcessingWindow : Window
     private Task<HorizontalVideoAnalysisResult>? _analysisTask;
     private string? _pendingRenamePath;
 
-    public VideoProcessingWindow(MainViewModel viewModel, string videoPath, double? seedPeriodSeconds, Task<QuickVideoMetadata> quickMetadataTask, string ringName)
+    /// <summary>
+    /// <paramref name="analyzeVideo"/> decouples this window from any particular mode's view
+    /// model - Ring Rotation passes <c>MainViewModel.AnalyzeVideoAsync</c>, Station Rotation
+    /// passes the equivalent method on <c>StationViewModel</c>, but the analysis itself
+    /// (<see cref="HorizontalVideoAnalyzer"/>) is identical either way. <paramref name="objectName"/>
+    /// is the ring/station name used for the rename-to-match-object-name prompt.
+    /// </summary>
+    public VideoProcessingWindow(
+        Func<string, double?, IProgress<VideoAnalysisProgress>, CancellationToken, Task<HorizontalVideoAnalysisResult>> analyzeVideo,
+        string videoPath, double? seedPeriodSeconds, Task<QuickVideoMetadata> quickMetadataTask, string objectName)
     {
         InitializeComponent();
-        _viewModel = viewModel;
+        _analyzeVideo = analyzeVideo;
         _videoPath = videoPath;
         _seedPeriodSeconds = seedPeriodSeconds;
         _quickMetadataTask = quickMetadataTask;
-        _ringName = ringName;
+        _objectName = objectName;
         Loaded += VideoProcessingWindow_Loaded;
     }
 
@@ -78,9 +86,9 @@ public partial class VideoProcessingWindow : Window
             }
         });
 
-        _analysisTask = _viewModel.AnalyzeVideoAsync(_videoPath, _seedPeriodSeconds, progress, _cts.Token);
+        _analysisTask = _analyzeVideo(_videoPath, _seedPeriodSeconds, progress, _cts.Token);
 
-        if (VideoFileNamer.MatchesRingName(_videoPath, _ringName))
+        if (VideoFileNamer.MatchesRingName(_videoPath, _objectName))
         {
             _ = FinishAnalysisAsync();
         }
@@ -97,7 +105,7 @@ public partial class VideoProcessingWindow : Window
     {
         ContentRendered -= VideoProcessingWindow_ContentRendered;
 
-        var suggestedPath = VideoFileNamer.GetNextAvailableFileName(_videoPath, _ringName);
+        var suggestedPath = VideoFileNamer.GetNextAvailableFileName(_videoPath, _objectName);
         var renamePrompt = new VideoRenamePromptWindow(Path.GetFileName(suggestedPath)) { Owner = this };
         if (renamePrompt.ShowDialog() == true)
         {

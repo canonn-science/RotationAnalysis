@@ -10,9 +10,36 @@ public sealed class MeasurementCsvStore
 
     public MeasurementCsvStore(string? csvPath = null)
     {
-        CsvPath = csvPath ?? Path.Combine(StoragePaths.Root, "measurements.csv");
+        CsvPath = csvPath ?? Path.Combine(StoragePaths.Root, "ring_period.csv");
 
+        MigrateLegacyFileName();
         MigrateIfNeeded();
+    }
+
+    /// <summary>One-time rename of the file from its pre-rebrand name ("measurements.csv") to the
+    /// current "ring_period.csv", now that the app covers multiple analysis modes and needs a
+    /// mode-specific file name. A no-op if the legacy file doesn't exist or the current-named
+    /// file is already there (never overwrites existing data).</summary>
+    private void MigrateLegacyFileName()
+    {
+        if (File.Exists(CsvPath))
+        {
+            return;
+        }
+
+        var directory = Path.GetDirectoryName(CsvPath);
+        if (string.IsNullOrEmpty(directory))
+        {
+            return;
+        }
+
+        var legacyPath = Path.Combine(directory, "measurements.csv");
+        if (!File.Exists(legacyPath))
+        {
+            return;
+        }
+
+        File.Move(legacyPath, CsvPath);
     }
 
     /// <summary>Transparently upgrades a CSV written by an older version of the app (missing the
