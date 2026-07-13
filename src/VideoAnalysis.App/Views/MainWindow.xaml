@@ -556,6 +556,20 @@
                         <Border Background="{StaticResource CanonnSurface2Brush}" BorderBrush="{StaticResource CanonnBorderBrush}"
                                 BorderThickness="1" Padding="14" Margin="0,16,0,0">
                             <StackPanel>
+                                <TextBlock Text="Video Library" FontWeight="SemiBold" FontSize="14"
+                                           Foreground="{StaticResource CanonnTextBrightBrush}"/>
+
+                                <CheckBox Content="Organize renamed videos into a folder named after the system" Margin="0,12,0,0"
+                                          IsChecked="{Binding OrganizeRenamedVideosBySystem, Mode=TwoWay}"/>
+                                <TextBlock Margin="24,4,0,0" TextWrapping="Wrap" FontSize="12"
+                                           Foreground="{StaticResource CanonnTextMutedBrush}"
+                                           Text="When accepting a suggested rename from the &quot;Add to Video Library&quot; dialog, moves the file into a same-folder subdirectory named after its system instead of leaving it alongside the original."/>
+                            </StackPanel>
+                        </Border>
+
+                        <Border Background="{StaticResource CanonnSurface2Brush}" BorderBrush="{StaticResource CanonnBorderBrush}"
+                                BorderThickness="1" Padding="14" Margin="0,16,0,0">
+                            <StackPanel>
                                 <TextBlock Text="Claude" FontWeight="SemiBold" FontSize="14"
                                            Foreground="{StaticResource CanonnTextBrightBrush}"/>
                                 <TextBlock Margin="0,4,0,0" TextWrapping="Wrap" FontSize="12"

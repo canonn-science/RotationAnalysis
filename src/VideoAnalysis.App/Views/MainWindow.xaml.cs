@@ -246,12 +246,19 @@ public partial class MainWindow : Window
 
     /// <summary>Shows the metadata modal for a freshly picked video and, if the user confirms,
     /// adds it to the library. <paramref name="prefillRow"/> supplies known system/body/ring
-    /// values (from a Ring Rotation row) so the user doesn't have to re-search Spansh.</summary>
+    /// values (from a Ring Rotation row) so the user doesn't have to re-search Spansh; absent
+    /// that, the modal auto-detects the system from the filename (falling back to journal
+    /// history) once it's shown - see <see cref="VideoUploadMetadataWindow"/>'s constructor doc.</summary>
     private VideoLibraryEntryViewModel? PromptAddVideoToLibrary(string videoPath, RingRowViewModel? prefillRow = null)
     {
-        var metadataViewModel = prefillRow is null
-            ? new VideoUploadMetadataViewModel(_viewModel.SpanshClient, _viewModel.JournalMonitor)
-            : new VideoUploadMetadataViewModel(
+        VideoUploadMetadataViewModel metadataViewModel;
+        if (prefillRow is null)
+        {
+            metadataViewModel = new VideoUploadMetadataViewModel(_viewModel.SpanshClient, _viewModel.JournalMonitor);
+        }
+        else
+        {
+            metadataViewModel = new VideoUploadMetadataViewModel(
                 _viewModel.SpanshClient,
                 _viewModel.JournalMonitor,
                 prefillSystemName: prefillRow.Ring.SystemName,
@@ -261,8 +268,13 @@ public partial class MainWindow : Window
                 prefillSystemZ: prefillRow.Ring.SystemZ,
                 prefillBodyName: prefillRow.Ring.BodyName,
                 prefillRingName: prefillRow.Ring.RingName);
+        }
 
-        var metadataWindow = new VideoUploadMetadataWindow(metadataViewModel, videoPath) { Owner = this };
+        var metadataWindow = new VideoUploadMetadataWindow(
+            metadataViewModel, videoPath,
+            autoDetectFromFilename: prefillRow is null,
+            organizeBySystemFolder: _viewModel.OrganizeRenamedVideosBySystem)
+        { Owner = this };
         if (metadataWindow.ShowDialog() != true || metadataWindow.ResultEntry is not { } entry)
         {
             return null;

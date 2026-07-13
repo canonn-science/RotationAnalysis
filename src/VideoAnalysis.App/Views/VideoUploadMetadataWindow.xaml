@@ -5,7 +5,7 @@
         xmlns:converters="clr-namespace:VideoAnalysis.App.Converters"
         ui:WindowHelper.UseModernWindowStyle="True"
         Icon="/Assets/canonn.ico"
-        Title="Add to Video Library" Height="520" Width="520"
+        Title="Add to Video Library" Height="560" Width="520"
         ResizeMode="NoResize" WindowStartupLocation="CenterOwner">
     <Window.Resources>
         <converters:StringToVisibilityConverter x:Key="StringToVisibility"/>
@@ -23,6 +23,7 @@
             <RowDefinition Height="Auto"/>
             <RowDefinition Height="Auto"/>
             <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
             <RowDefinition Height="Auto"/>
         </Grid.RowDefinitions>
 
@@ -64,7 +65,7 @@
                    Foreground="{StaticResource CanonnTextBrightBrush}"/>
         <ComboBox Grid.Row="7" Margin="0,0,0,12" IsEditable="True"
                   ItemsSource="{Binding BodyNames}"
-                  Text="{Binding SelectedBodyName, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"/>
+                  Text="{Binding BodyNameDisplay, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"/>
 
         <StackPanel Grid.Row="8">
             <StackPanel Visibility="{Binding HasRingOptions, Converter={StaticResource BoolToVisibility}}">
@@ -79,10 +80,13 @@
                        Foreground="{StaticResource CanonnTextBrightBrush}"/>
             <ComboBox Margin="0,0,0,12" IsEditable="True"
                       ItemsSource="{Binding StationNames}"
-                      Text="{Binding SelectedStationName, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"/>
+                      Text="{Binding StationNameDisplay, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"/>
         </StackPanel>
 
-        <StackPanel Grid.Row="9" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,16,0,0">
+        <CheckBox x:Name="RenameCheckBox" Grid.Row="9" Margin="0,12,0,0" VerticalContentAlignment="Center"
+                  Visibility="Collapsed"/>
+
+        <StackPanel Grid.Row="10" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,16,0,0">
             <Button Content="Cancel" Padding="16,8" Margin="0,0,8,0" Click="CancelButton_Click" IsCancel="True"/>
             <Button Content="Add to Library" Padding="24,8" Background="{StaticResource CanonnAccentBrush}"
                     Foreground="White" Click="AddButton_Click" IsDefault="True"/>

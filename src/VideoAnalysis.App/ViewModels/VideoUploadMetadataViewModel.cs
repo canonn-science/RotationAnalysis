@@ -1,6 +1,8 @@
 using System.Collections.ObjectModel;
+using System.IO;
 using VideoAnalysis.App.Infrastructure;
 using VideoAnalysis.Core.Diagnostics;
+using VideoAnalysis.Core.Domain;
 using VideoAnalysis.Core.Journal;
 using VideoAnalysis.Core.Spansh;
 using VideoAnalysis.Core.Spansh.Models;
@@ -15,7 +17,10 @@ namespace VideoAnalysis.App.ViewModels;
 /// wins, this is just a convenience prefill, not a live-updating binding.</summary>
 public sealed class VideoUploadMetadataViewModel : ObservableObject
 {
+    private const string UnknownPlaceholder = "N/A";
+
     private readonly SpanshClient _spanshClient;
+    private readonly JournalMonitor? _journalMonitor;
     private readonly List<(string Name, string? Type)> _stationOptions = new();
 
     private string _systemQuery = string.Empty;
@@ -39,6 +44,7 @@ public sealed class VideoUploadMetadataViewModel : ObservableObject
         string? prefillRingName = null)
     {
         _spanshClient = spanshClient;
+        _journalMonitor = journalMonitor;
 
         if (prefillSystemName is not null && prefillSystemId64 is long id64)
         {
@@ -73,7 +79,14 @@ public sealed class VideoUploadMetadataViewModel : ObservableObject
     public string SystemQuery
     {
         get => _systemQuery;
-        set => SetField(ref _systemQuery, value);
+        set
+        {
+            if (SetField(ref _systemQuery, value))
+            {
+                OnPropertyChanged(nameof(ResolvedSystemName));
+                OnPropertyChanged(nameof(SuggestedFileBaseName));
+            }
+        }
     }
 
     public string? SelectedBodyName
@@ -83,6 +96,8 @@ public sealed class VideoUploadMetadataViewModel : ObservableObject
         {
             if (SetField(ref _selectedBodyName, value))
             {
+                OnPropertyChanged(nameof(BodyNameDisplay));
+                OnPropertyChanged(nameof(SuggestedFileBaseName));
                 UpdateRingOptions(resetSelection: true);
             }
         }
@@ -91,16 +106,62 @@ public sealed class VideoUploadMetadataViewModel : ObservableObject
     public string? SelectedRingName
     {
         get => _selectedRingName;
-        set => SetField(ref _selectedRingName, value);
+        set
+        {
+            if (SetField(ref _selectedRingName, value))
+            {
+                OnPropertyChanged(nameof(SuggestedFileBaseName));
+            }
+        }
     }
 
     public string? SelectedStationName
     {
         get => _selectedStationName;
-        set => SetField(ref _selectedStationName, value);
+        set
+        {
+            if (SetField(ref _selectedStationName, value))
+            {
+                OnPropertyChanged(nameof(StationNameDisplay));
+            }
+        }
     }
 
+    /// <summary>What the Body combo box actually shows: the real value once known, or a literal
+    /// "N/A" placeholder while it isn't - typing over the placeholder (or leaving it as-is)
+    /// clears/keeps <see cref="SelectedBodyName"/> null rather than persisting the literal text.</summary>
+    public string BodyNameDisplay
+    {
+        get => string.IsNullOrWhiteSpace(SelectedBodyName) ? UnknownPlaceholder : SelectedBodyName;
+        set => SelectedBodyName = IsPlaceholder(value) ? null : value;
+    }
+
+    /// <summary>Same placeholder behavior as <see cref="BodyNameDisplay"/>, for the Station combo box.</summary>
+    public string StationNameDisplay
+    {
+        get => string.IsNullOrWhiteSpace(SelectedStationName) ? UnknownPlaceholder : SelectedStationName;
+        set => SelectedStationName = IsPlaceholder(value) ? null : value;
+    }
+
+    private static bool IsPlaceholder(string? value) =>
+        string.IsNullOrWhiteSpace(value) || string.Equals(value.Trim(), UnknownPlaceholder, StringComparison.OrdinalIgnoreCase);
+
     public bool HasRingOptions => RingNames.Count > 0;
+
+    /// <summary>The system name as currently resolved (Spansh match) or, failing that, whatever's
+    /// typed into the search box - used both for the video library entry and for naming a
+    /// system-organized folder when renaming the uploaded file.</summary>
+    public string? ResolvedSystemName => _selectedSystem?.Name ?? (SystemQuery.Trim().Length > 0 ? SystemQuery.Trim() : null);
+
+    /// <summary>The name a rename-to-match suggestion should use: the most specific of ring/body/
+    /// system that's currently populated - mirroring the same "name the file after the ring"
+    /// convention <see cref="VideoAnalysis.Core.Storage.VideoFileNamer"/> already uses for the Ring
+    /// Rotation completion flow, generalized to fall back to body or system when a video isn't
+    /// ring-specific (e.g. Station Rotation, or a system with no rings at all).</summary>
+    public string? SuggestedFileBaseName =>
+        !string.IsNullOrWhiteSpace(SelectedRingName) ? SelectedRingName :
+        !string.IsNullOrWhiteSpace(SelectedBodyName) ? SelectedBodyName :
+        ResolvedSystemName;
 
     public bool IsBusy
     {
@@ -150,6 +211,92 @@ public sealed class VideoUploadMetadataViewModel : ObservableObject
         }
     }
 
+    /// <summary>Tries to spot a system name in the uploaded file's name (see
+    /// <see cref="FilenameSystemMatcher"/>) and, if found, pre-fills the system search - and its
+    /// body/ring/station options - the same way a manual Spansh lookup would. Only call this when
+    /// no other prefill (a Ring Rotation row, or the journal's last-known system) has already
+    /// claimed a stronger answer; a filename match found here simply overrides that fallback.
+    /// If the filename doesn't give up a system, falls back to <see cref="TryDetectSystemFromJournalHistoryAsync"/>.</summary>
+    public async Task TryDetectSystemFromFilenameAsync(string filePath)
+    {
+        try
+        {
+            var fileName = Path.GetFileNameWithoutExtension(filePath);
+            var match = await _spanshClient.TryFindSystemInFilenameAsync(fileName).ConfigureAwait(true);
+            if (match is not null)
+            {
+                SetSelectedSystem(match);
+                SystemQuery = match.Name;
+                await LoadDumpAsync(match, resetSelections: true).ConfigureAwait(true);
+                return;
+            }
+        }
+        catch (Exception ex)
+        {
+            AppLog.LogError("VideoUploadMetadataFilenameMatch", ex);
+        }
+
+        await TryDetectSystemFromJournalHistoryAsync(filePath).ConfigureAwait(true);
+    }
+
+    /// <summary>Falls back to the file's creation time: replays journal history (see
+    /// <see cref="JournalHistoryLookup"/>) to find where the commander was at that moment, and
+    /// pre-fills the system/body/station from that, the same way a filename match would. Purely
+    /// best-effort - a missing journal directory, no journal coverage for that time, or a
+    /// system Spansh doesn't recognize just leaves the fields for the user to fill in by hand.</summary>
+    public async Task TryDetectSystemFromJournalHistoryAsync(string filePath)
+    {
+        if (_journalMonitor is null)
+        {
+            return;
+        }
+
+        DateTime createdUtc;
+        try
+        {
+            createdUtc = File.GetCreationTimeUtc(filePath);
+        }
+        catch (IOException)
+        {
+            return;
+        }
+
+        try
+        {
+            var snapshot = await Task.Run(() => JournalHistoryLookup.FindLocationAt(_journalMonitor.JournalDirectory, createdUtc))
+                .ConfigureAwait(true);
+            if (snapshot?.SystemName is not { } systemName)
+            {
+                return;
+            }
+
+            var response = await _spanshClient.SearchSystemsAsync(systemName).ConfigureAwait(true);
+            var resolved = response.MinMax.FirstOrDefault(s => string.Equals(s.Name, systemName, StringComparison.OrdinalIgnoreCase));
+            if (resolved is null)
+            {
+                return;
+            }
+
+            SetSelectedSystem(resolved);
+            SystemQuery = resolved.Name;
+            await LoadDumpAsync(resolved, resetSelections: true).ConfigureAwait(true);
+
+            if (snapshot.BodyName is not null && BodyNames.Contains(snapshot.BodyName))
+            {
+                SelectedBodyName = snapshot.BodyName;
+            }
+
+            if (snapshot.StationName is not null && StationNames.Contains(snapshot.StationName))
+            {
+                SelectedStationName = snapshot.StationName;
+            }
+        }
+        catch (Exception ex)
+        {
+            AppLog.LogError("VideoUploadMetadataJournalHistoryMatch", ex);
+        }
+    }
+
     public async Task SelectSystemAsync(SpanshSearchSystem? chosenSystem)
     {
         var resolved = chosenSystem;
@@ -185,9 +332,16 @@ public sealed class VideoUploadMetadataViewModel : ObservableObject
             }
         }
 
-        _selectedSystem = resolved;
+        SetSelectedSystem(resolved);
         SystemQuery = resolved.Name;
         await LoadDumpAsync(resolved, resetSelections: true).ConfigureAwait(true);
+    }
+
+    private void SetSelectedSystem(SpanshSearchSystem system)
+    {
+        _selectedSystem = system;
+        OnPropertyChanged(nameof(ResolvedSystemName));
+        OnPropertyChanged(nameof(SuggestedFileBaseName));
     }
 
     /// <summary>Builds the library entry to persist, using whatever system/body/ring/station the
@@ -223,6 +377,14 @@ public sealed class VideoUploadMetadataViewModel : ObservableObject
                 {
                     BodyNames.Add(body.Name);
                 }
+            }
+
+            if (resetSelections)
+            {
+                // A body/ring/station picked for a *different* system is meaningless here (and,
+                // left in place, could still coincidentally match one of this system's own body
+                // names) - clear it before re-deriving ring/station options from the new dump.
+                SelectedBodyName = null;
             }
 
             UpdateStationOptions(resetSelections);

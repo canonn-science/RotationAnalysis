@@ -32,6 +32,7 @@ public sealed class MainViewModel : ObservableObject, IDisposable
     private string _commanderName;
     private bool _monitorJournals;
     private bool _overrideUsername;
+    private bool _organizeRenamedVideosBySystem;
     private bool _hasClaudeApiKey;
     private VideoLibraryEntryViewModel? _activeLibraryVideo;
 
@@ -41,6 +42,7 @@ public sealed class MainViewModel : ObservableObject, IDisposable
         _commanderName = settings.CommanderName ?? DefaultCommanderName;
         _monitorJournals = settings.MonitorJournals;
         _overrideUsername = settings.OverrideUsername;
+        _organizeRenamedVideosBySystem = settings.OrganizeRenamedVideosBySystem;
         Measurements = new MeasurementsViewModel(_measurementStore, SubmitRecordToCanonnAsync, () => CommanderName);
         Stations = new StationViewModel();
         JetCone = new JetConeViewModel();
@@ -112,6 +114,20 @@ public sealed class MainViewModel : ObservableObject, IDisposable
         }
     }
 
+    /// <summary>When enabled, a rename accepted from the "Add to Video Library" dialog moves the
+    /// file into a subfolder named after its system, instead of leaving it alongside the original.</summary>
+    public bool OrganizeRenamedVideosBySystem
+    {
+        get => _organizeRenamedVideosBySystem;
+        set
+        {
+            if (SetField(ref _organizeRenamedVideosBySystem, value))
+            {
+                PersistSettings();
+            }
+        }
+    }
+
     private void PersistSettings()
     {
         _settingsStore.Save(new AppSettings
@@ -119,6 +135,7 @@ public sealed class MainViewModel : ObservableObject, IDisposable
             CommanderName = _commanderName,
             MonitorJournals = _monitorJournals,
             OverrideUsername = _overrideUsername,
+            OrganizeRenamedVideosBySystem = _organizeRenamedVideosBySystem,
         });
     }
 
