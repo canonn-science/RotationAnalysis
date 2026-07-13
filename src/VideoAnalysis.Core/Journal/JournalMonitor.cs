@@ -200,37 +200,50 @@ public sealed class JournalMonitor : IDisposable
                 foreach (var line in completeText.Split('\n', StringSplitOptions.RemoveEmptyEntries))
                 {
                     var trimmedLine = line.TrimEnd('\r');
-
-                    var name = TryExtractCommanderName(trimmedLine);
-                    if (name is not null)
+                    if (trimmedLine.Length == 0)
                     {
-                        lastName = name;
+                        continue;
                     }
 
-                    var system = TryExtractSystemName(trimmedLine);
-                    if (system is not null)
+                    try
                     {
-                        lastSystem = system;
-                    }
+                        using var doc = JsonDocument.Parse(trimmedLine);
+                        var root = doc.RootElement;
+                        if (!root.TryGetProperty("event", out var eventProp))
+                        {
+                            continue;
+                        }
 
-                    var body = TryExtractBodyName(trimmedLine);
-                    if (body is not null)
-                    {
-                        lastBody = body;
+                        var eventName = eventProp.GetString();
+                        switch (eventName)
+                        {
+                            case "Commander" when root.TryGetProperty("Name", out var nameProp):
+                                lastName = nameProp.GetString() ?? lastName;
+                                break;
+                            case "LoadGame" when root.TryGetProperty("Commander", out var commanderProp):
+                                lastName = commanderProp.GetString() ?? lastName;
+                                break;
+                            case "Location" or "FSDJump" or "CarrierJump" when root.TryGetProperty("StarSystem", out var systemProp):
+                                lastSystem = systemProp.GetString() ?? lastSystem;
+                                break;
+                            case "ApproachBody" or "SupercruiseExit" when root.TryGetProperty("Body", out var bodyProp):
+                                lastBody = bodyProp.GetString() ?? lastBody;
+                                break;
+                            case "Docked":
+                                stationTouched = true;
+                                stationName = root.TryGetProperty("StationName", out var snProp) ? snProp.GetString() : null;
+                                stationType = root.TryGetProperty("StationType", out var stProp) ? stProp.GetString() : null;
+                                break;
+                            case "Undocked":
+                                stationTouched = true;
+                                stationName = null;
+                                stationType = null;
+                                break;
+                        }
                     }
-
-                    var docked = TryExtractDockedStation(trimmedLine);
-                    if (docked is not null)
+                    catch (JsonException)
                     {
-                        stationTouched = true;
-                        stationName = docked.Value.StationName;
-                        stationType = docked.Value.StationType;
-                    }
-                    else if (IsUndockedEvent(trimmedLine))
-                    {
-                        stationTouched = true;
-                        stationName = null;
-                        stationType = null;
+                        // Skip malformed lines.
                     }
                 }
 
