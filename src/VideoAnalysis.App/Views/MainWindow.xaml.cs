@@ -898,11 +898,15 @@ public partial class MainWindow : Window
             };
             await _viewModel.Stations.SubmitAsync(syntheticSystem, preferredStationName: entry.Entry.StationName);
         }
-        else
-        {
-            _viewModel.Stations.ErrorMessage =
-                "This video isn't tagged with a system - search for one above, then pick its station below.";
-        }
+else
+{
+    _viewModel.Stations.Stations.Clear();
+    _viewModel.Stations.SelectedStation = null;
+    _viewModel.Stations.ResolvedSystemName = null;
+
+    _viewModel.Stations.ErrorMessage =
+        "This video isn't tagged with a system - search for one above, then pick its station below.";
+}
 
         byte[]? previewFrame;
         try
