@@ -83,8 +83,8 @@ public static class LongExposureProcessor
                 Cv2.CvtColor(firstFrame, prevGray, ColorConversionCodes.BGR2GRAY);
             }
 
-            using var motionSum = Mat.Zeros(size, MatType.CV_64FC1).ToMat();
-            using var motionSqSum = Mat.Zeros(size, MatType.CV_64FC1).ToMat();
+using var motionSum = needMotionVariance ? Mat.Zeros(size, MatType.CV_64FC1).ToMat() : new Mat();
+using var motionSqSum = needMotionVariance ? Mat.Zeros(size, MatType.CV_64FC1).ToMat() : new Mat();
 
             int count = 1;
             using var frame = new Mat();
