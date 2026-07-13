@@ -376,6 +376,7 @@
                                 <Button Grid.Row="4" Content="Analyze Video" Padding="24,8" Margin="0,16,0,0"
                                         HorizontalAlignment="Left" FontSize="16"
                                         Background="{StaticResource CanonnAccentBrush}" Foreground="White"
+                                        IsEnabled="{Binding CanAnalyze}"
                                         Click="JetConeAnalyzeButton_Click"/>
 
                                 <Grid Grid.Row="5" Margin="0,20,0,0" Visibility="{Binding HasResult, Converter={StaticResource BoolToVisibility}}">

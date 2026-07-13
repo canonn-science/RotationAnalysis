@@ -72,6 +72,7 @@ public sealed class JetConeViewModel : ObservableObject, IDisposable
             {
                 OnPropertyChanged(nameof(VideoFileName));
                 OnPropertyChanged(nameof(HasVideo));
+                OnPropertyChanged(nameof(CanAnalyze));
             }
         }
     }
@@ -89,14 +90,24 @@ public sealed class JetConeViewModel : ObservableObject, IDisposable
         get => _selectedTarget;
         set
         {
-            if (SetField(ref _selectedTarget, value) && value is not null)
+            if (SetField(ref _selectedTarget, value))
             {
-                // Picking a target resolves whatever prompted the user in the first place (no
-                // body tagged, a stale/mismatched one, ...) - don't leave that message lingering.
-                ErrorMessage = null;
+                if (value is not null)
+                {
+                    // Picking a target resolves whatever prompted the user in the first place (no
+                    // body tagged, a stale/mismatched one, ...) - don't leave that message lingering.
+                    ErrorMessage = null;
+                }
+
+                OnPropertyChanged(nameof(CanAnalyze));
             }
         }
     }
+
+    /// <summary>Analyzing requires both a video (from the library selection) and a resolved
+    /// system/body target (see <see cref="SubmitAsync"/>) - the Analyze button is disabled until
+    /// both are in place instead of only failing with an error message after the fact.</summary>
+    public bool CanAnalyze => HasVideo && SelectedTarget is not null;
 
     public JetLengthMeasurementsViewModel Measurements { get; }
 
