@@ -335,10 +335,19 @@ public sealed class MainViewModel : ObservableObject, IDisposable
             SystemQuery = syntheticSystem.Name;
             _ = SubmitAsync(syntheticSystem);
         }
-        else
-        {
-            ErrorMessage = "This video isn't tagged with a system - search for one above, then pick its ring below.";
-        }
+else
+{
+    // Clear any previously resolved system/ring state so Analyze stays gated off until the user
+    // resolves the system for this new, untagged video.
+    SelectedRing = null;
+    SelectedBodyName = null;
+    Rings.Clear();
+    BodyNames.Clear();
+    RingChoices.Clear();
+    ResolvedSystemName = null;
+
+    ErrorMessage = "This video isn't tagged with a system - search for one above, then pick its ring below.";
+}
     }
 
     public bool HasClaudeApiKey
