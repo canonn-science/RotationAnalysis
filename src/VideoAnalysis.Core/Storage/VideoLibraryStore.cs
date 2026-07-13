@@ -131,14 +131,24 @@ public sealed class VideoLibraryStore
         }
     }
 
-    private void SaveUnlocked(List<VideoLibraryEntry> entries)
+private void SaveUnlocked(List<VideoLibraryEntry> entries)
+{
+    var directory = Path.GetDirectoryName(LibraryPath);
+    if (!string.IsNullOrEmpty(directory))
     {
-        var directory = Path.GetDirectoryName(LibraryPath);
-        if (!string.IsNullOrEmpty(directory))
-        {
-            Directory.CreateDirectory(directory);
-        }
+        Directory.CreateDirectory(directory);
+    }
 
-        File.WriteAllText(LibraryPath, JsonSerializer.Serialize(entries));
+    var json = JsonSerializer.Serialize(entries);
+    var tempPath = LibraryPath + ".tmp";
+    File.WriteAllText(tempPath, json);
+
+    if (File.Exists(LibraryPath))
+    {
+        File.Replace(tempPath, LibraryPath, null);
+    }
+    else
+    {
+        File.Move(tempPath, LibraryPath);
     }
 }
