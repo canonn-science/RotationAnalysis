@@ -468,18 +468,9 @@
                         <RowDefinition Height="Auto"/>
                     </Grid.RowDefinitions>
 
-                    <Grid Grid.Row="0">
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="Auto"/>
-                            <ColumnDefinition Width="*"/>
-                        </Grid.ColumnDefinitions>
-                        <Button Grid.Column="0" Content="Upload Video…" Padding="16,8"
-                                FontSize="16" Background="{StaticResource CanonnAccentBrush}"
-                                Foreground="White" Click="SlitScanUploadButton_Click"/>
-                        <TextBlock Grid.Column="1" Margin="12,0,0,0" VerticalAlignment="Center" FontSize="14"
-                                   Foreground="{StaticResource CanonnTextBrightBrush}"
-                                   Text="{Binding VideoFileName, StringFormat='Selected video: {0}', FallbackValue='No video selected yet.'}"/>
-                    </Grid>
+                    <TextBlock Grid.Row="0" VerticalAlignment="Center" FontSize="14"
+                               Foreground="{StaticResource CanonnTextBrightBrush}"
+                               Text="{Binding VideoFileName, StringFormat='Selected video: {0}', FallbackValue='Select a video from the library on the left to get started.'}"/>
 
                     <TextBlock Grid.Row="1" Text="{Binding ErrorMessage}" Foreground="#FF6B6B" Margin="0,8,0,0"
                                TextWrapping="Wrap"

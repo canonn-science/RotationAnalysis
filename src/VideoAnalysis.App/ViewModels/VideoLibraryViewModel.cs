@@ -74,6 +74,19 @@ public sealed class VideoLibraryViewModel : ObservableObject
         }
     }
 
+    /// <summary>Selects whatever is currently first in the list (most-recently-used ordering, so
+    /// this is always the last video uploaded or selected in a previous session) - called once
+    /// consumers have finished wiring up <see cref="EntrySelected"/>, so every tab that depends on
+    /// it (Ring Rotation's system search, Slit Scan's preview) is already in sync the moment the
+    /// app opens, without requiring the user to click anything first.</summary>
+    public void SelectFirstEntryIfAny()
+    {
+        if (Entries.Count > 0)
+        {
+            Select(Entries[0]);
+        }
+    }
+
     /// <summary>Marks an entry as most-recently-used, moves it to the top of the visible list,
     /// and raises <see cref="EntrySelected"/>.</summary>
     public void Select(VideoLibraryEntryViewModel entry)

@@ -35,6 +35,8 @@ public partial class MainWindow : Window
         _viewModel.Stations.VideoSelectionRequested += OnStationVideoSelectionRequested;
         _viewModel.JetCone.VideoSelectionRequested += OnJetConeVideoSelectionRequested;
         _viewModel.LongExposure.VideoSelectionRequested += OnLongExposureVideoSelectionRequested;
+        _viewModel.VideoLibrary.EntrySelected += OnLibraryEntrySelectedForSlitScan;
+        _viewModel.VideoLibrary.SelectFirstEntryIfAny();
         Closed += (_, _) =>
         {
             _viewModel.Dispose();
@@ -629,14 +631,21 @@ public partial class MainWindow : Window
         resultsWindow.ShowDialog();
     }
 
-    private async void SlitScanUploadButton_Click(object sender, RoutedEventArgs e)
+    /// <summary>Slit Scan is a general effect with no system/body context of its own, so unlike
+    /// Ring Rotation's library hookup (which also resolves and searches the system), selecting any
+    /// library video just loads it here directly - the same way manually uploading one does.</summary>
+    private async void OnLibraryEntrySelectedForSlitScan(VideoLibraryEntryViewModel entry)
     {
-        var promptWindow = new VideoUploadPromptWindow { Owner = this };
-        if (promptWindow.ShowDialog() != true || promptWindow.SelectedFilePath is not string videoPath)
+        if (entry.IsFileMissing)
         {
             return;
         }
 
+        await SetSlitScanVideoAsync(entry.FilePath);
+    }
+
+    private async Task SetSlitScanVideoAsync(string videoPath)
+    {
         _viewModel.SlitScan.ErrorMessage = null;
         _viewModel.SlitScan.VideoFilePath = videoPath;
         SlitScanControls.SetPreviewFrame(null);
@@ -663,7 +672,7 @@ public partial class MainWindow : Window
         var videoPath = _viewModel.SlitScan.VideoFilePath;
         if (videoPath is null)
         {
-            _viewModel.SlitScan.ErrorMessage = "Upload a video first.";
+            _viewModel.SlitScan.ErrorMessage = "Select a video from the library first.";
             return;
         }
 
