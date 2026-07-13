@@ -491,11 +491,15 @@ public partial class MainWindow : Window
             };
             await _viewModel.JetCone.SubmitAsync(syntheticSystem, preferredBodyName: entry.Entry.BodyName);
         }
-        else
-        {
-            _viewModel.JetCone.ErrorMessage =
-                "This video isn't tagged with a system - search for one above, then pick its neutron star or white dwarf below.";
-        }
+else
+{
+    _viewModel.JetCone.Targets.Clear();
+    _viewModel.JetCone.SelectedTarget = null;
+    _viewModel.JetCone.ResolvedSystemName = null;
+
+    _viewModel.JetCone.ErrorMessage =
+        "This video isn't tagged with a system - search for one above, then pick its neutron star or white dwarf below.";
+}
 
         byte[]? previewFrame;
         try
