@@ -84,7 +84,7 @@ public sealed class JetLengthMeasurementsViewModel : ObservableObject
             {
                 row.IsSubmitted = true;
             }
-            _store.SaveAll(Records.Select(r => r.Record));
+            _store.SaveAll(Records.Select(r => r.Record).Reverse());
         }
         catch (Exception ex)
         {
