@@ -824,7 +824,7 @@
                                                Foreground="{StaticResource CanonnTextBrightBrush}"/>
                                     <TextBlock Margin="0,6,0,0" TextWrapping="Wrap" FontSize="12" LineHeight="18"
                                                Foreground="{StaticResource CanonnTextMutedBrush}"
-                                               Text="When you upload a video, the app looks for a system name in the leading words of its filename - e.g. &quot;Aurorae AB 3 A Ring.mp4&quot; matches the system Aurorae, since Elite Dangerous ring and station names start with the system name. This is also the naming convention the app itself suggests when it offers to rename a file after analysis. If a filename doesn't match anything (a screen recorder's default name, for example), matching just fails silently and you'll need to search for the system by hand in the upload prompt - the app never guesses wrong on its own, it just skips a step for you when the name already matches."/>
+                                               Text="When you upload a video, the app looks for a system name in the leading words of its filename - e.g. &quot;Aurorae AB 3 A Ring.mp4&quot; matches the system Aurorae, since Elite Dangerous ring and station names start with the system name. This is also the naming convention the app itself suggests when it offers to rename a file after analysis. If the filename doesn't match anything, the app can also try to infer the system from your Elite Dangerous journal history (when journal monitoring is enabled); otherwise you'll need to search for the system by hand in the upload prompt."/>
                                 </StackPanel>
                             </Border>
 
