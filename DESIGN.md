@@ -1,6 +1,6 @@
 # Video Analysis Lab
 
-An application used to calculate the rotation speed of planetary ring systems in Elite Dangerous, for Canonn's citizen-science ring-rotation project.
+An application used to calculate the rotation speed of planetary ring systems in Elite Dangerous, for Canonn's ring-rotation research project.
 
 ## System search
 

@@ -30,7 +30,7 @@
                 <StackPanel Grid.Column="0" VerticalAlignment="Center">
                     <TextBlock Text="Video Analysis Lab" FontSize="22" FontWeight="Bold"
                                Foreground="{StaticResource CanonnTextBrightBrush}"/>
-                    <TextBlock Text="A suite of video analysis tools for Elite Dangerous citizen science"
+                    <TextBlock Text="A suite of video analysis tools for Elite Dangerous, built for Canonn's science volunteers"
                                FontSize="12" Foreground="{StaticResource CanonnTextMutedBrush}" Margin="0,2,0,0"/>
                 </StackPanel>
                 <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
@@ -789,39 +789,139 @@
             </TabItem>
 
             <TabItem Header="About">
-                <Grid Margin="12">
-                    <StackPanel MaxWidth="640" HorizontalAlignment="Left">
-                        <StackPanel Orientation="Horizontal">
-                            <Image Source="/Assets/canonn_logo.png" Height="56" Stretch="Uniform" Margin="0,0,16,0"/>
-                            <StackPanel VerticalAlignment="Center">
-                                <TextBlock Text="Video Analysis Lab" FontSize="22" FontWeight="Bold"
+                <ScrollViewer VerticalScrollBarVisibility="Auto">
+                    <Grid Margin="12">
+                        <StackPanel MaxWidth="760" HorizontalAlignment="Left">
+                            <StackPanel Orientation="Horizontal">
+                                <Image Source="/Assets/canonn_logo.png" Height="56" Stretch="Uniform" Margin="0,0,16,0"/>
+                                <StackPanel VerticalAlignment="Center">
+                                    <TextBlock Text="Video Analysis Lab" FontSize="22" FontWeight="Bold"
+                                               Foreground="{StaticResource CanonnTextBrightBrush}"/>
+                                    <TextBlock x:Name="VersionText" FontSize="13"
+                                               Foreground="{StaticResource CanonnTextMutedBrush}" Margin="0,2,0,0"/>
+                                </StackPanel>
+                            </StackPanel>
+
+                            <TextBlock Margin="0,20,0,0" TextWrapping="Wrap" LineHeight="20"
+                                       Foreground="{StaticResource CanonnTextBrush}"
+                                       Text="Video Analysis Lab turns Elite Dangerous flight footage into measured data and stylized images for Canonn: how fast a planetary ring or belt rotates, how fast a station or installation rotates, and how long a neutron star's jet cone reaches, plus two image tools - Long Exposure and Slit Scan - for turning a clip into a single composite image. Every mode below reads from the same video library and uses the same filename convention to find a video's system, both explained first."/>
+
+                            <Border Background="{StaticResource CanonnSurface2Brush}" BorderBrush="{StaticResource CanonnBorderBrush}"
+                                    BorderThickness="1" Padding="14" Margin="0,20,0,0">
+                                <StackPanel>
+                                    <TextBlock Text="The video library" FontWeight="SemiBold" FontSize="14"
+                                               Foreground="{StaticResource CanonnTextBrightBrush}"/>
+                                    <TextBlock Margin="0,6,0,0" TextWrapping="Wrap" FontSize="12" LineHeight="18"
+                                               Foreground="{StaticResource CanonnTextMutedBrush}"
+                                               Text="Every mode shares the video library on the left instead of having its own file picker, so a video you tag once (system, body, ring/station) is ready for any mode. Click &quot;Upload Video…&quot; to add a file - a prompt lets you confirm or search for what it was recorded at. The library stores a reference to the file's location instead of copying videos into an app folder; if you accept the suggested rename in the upload dialog, the app may rename or move the file (depending on your Configuration settings). An entry shows as missing if the file is later moved, renamed, or deleted outside the app."/>
+                                </StackPanel>
+                            </Border>
+
+                            <Border Background="{StaticResource CanonnSurface2Brush}" BorderBrush="{StaticResource CanonnBorderBrush}"
+                                    BorderThickness="1" Padding="14" Margin="0,16,0,0">
+                                <StackPanel>
+                                    <TextBlock Text="How videos get matched to a system" FontWeight="SemiBold" FontSize="14"
+                                               Foreground="{StaticResource CanonnTextBrightBrush}"/>
+                                    <TextBlock Margin="0,6,0,0" TextWrapping="Wrap" FontSize="12" LineHeight="18"
+                                               Foreground="{StaticResource CanonnTextMutedBrush}"
+                                               Text="When you upload a video, the app looks for a system name in the leading words of its filename - e.g. &quot;Aurorae AB 3 A Ring.mp4&quot; matches the system Aurorae, since Elite Dangerous ring and station names start with the system name. This is also the naming convention the app itself suggests when it offers to rename a file after analysis. If the filename doesn't match anything, the app can also try to infer the system from your Elite Dangerous journal history (when journal monitoring is enabled); otherwise you'll need to search for the system by hand in the upload prompt."/>
+                                </StackPanel>
+                            </Border>
+
+                            <Border Background="{StaticResource CanonnSurface2Brush}" BorderBrush="{StaticResource CanonnBorderBrush}"
+                                    BorderThickness="1" Padding="14" Margin="0,16,0,0">
+                                <StackPanel>
+                                    <TextBlock Text="Ring Rotation" FontWeight="SemiBold" FontSize="14"
+                                               Foreground="{StaticResource CanonnTextBrightBrush}"/>
+                                    <TextBlock Margin="0,6,0,0" TextWrapping="Wrap" FontSize="12" LineHeight="18"
+                                               Foreground="{StaticResource CanonnTextMutedBrush}"
+                                               Text="Estimates how fast a planetary ring or asteroid belt is rotating. Pick a system, then a ring or belt - the app computes an estimated period from orbital mechanics and suggests how long to film. Record yourself parked on the ring, facing the horizon, upload the clip, and the app tracks background stars across the frames to measure the actual rotation period against that estimate."/>
+                                    <TextBlock Margin="0,8,0,0" FontSize="12">
+                                        <Run Text="Captured data: " FontWeight="SemiBold"
+                                             Foreground="{StaticResource CanonnTextBrightBrush}"/>
+                                        <Hyperlink NavigateUri="https://docs.google.com/spreadsheets/d/1rmZLv9sLChYD3QaLos6lWba2TWp5I2W3La4tuvm5hro/edit?resourcekey=&amp;gid=947491494#gid=947491494" RequestNavigate="Hyperlink_RequestNavigate">Ring Rotation measurement spreadsheet (Lab Responses)</Hyperlink>
+                                    </TextBlock>
+                                </StackPanel>
+                            </Border>
+
+                            <Border Background="{StaticResource CanonnSurface2Brush}" BorderBrush="{StaticResource CanonnBorderBrush}"
+                                    BorderThickness="1" Padding="14" Margin="0,16,0,0">
+                                <StackPanel>
+                                    <TextBlock Text="Station Rotation" FontWeight="SemiBold" FontSize="14"
+                                               Foreground="{StaticResource CanonnTextBrightBrush}"/>
+                                    <TextBlock Margin="0,6,0,0" TextWrapping="Wrap" FontSize="12" LineHeight="18"
+                                               Foreground="{StaticResource CanonnTextMutedBrush}"
+                                               Text="Measures how fast an orbital station, installation, or Guardian Beacon is rotating, compared against its parent body's known rotation period (surface ports and settlements aren't offered, since they don't rotate). Pick a system and a station, installation, or beacon, film it framed the same way as a ring - horizon-centered, holding position - and the same star-tracking analysis produces an observed period."/>
+                                </StackPanel>
+                            </Border>
+
+                            <Border Background="{StaticResource CanonnSurface2Brush}" BorderBrush="{StaticResource CanonnBorderBrush}"
+                                    BorderThickness="1" Padding="14" Margin="0,16,0,0">
+                                <StackPanel>
+                                    <TextBlock Text="Jet Cone Length" FontWeight="SemiBold" FontSize="14"
+                                               Foreground="{StaticResource CanonnTextBrightBrush}"/>
+                                    <TextBlock Margin="0,6,0,0" TextWrapping="Wrap" FontSize="12" LineHeight="18"
+                                               Foreground="{StaticResource CanonnTextMutedBrush}"
+                                               Text="Measures the length of a neutron star or white dwarf's jet cone. Fly straight toward the jet and film the approach until the &quot;WARNING! FSD OPERATING BEYOND SAFETY LIMITS&quot; overlay appears (full filming instructions are on the Measure tab). The app finds the exact frame where that warning appears and reads the HUD's distance counter at that instant - with an optional Claude Vision fallback, configurable on the Configuration tab, if the local reading is uncertain - then asks you to confirm the reading before it's saved."/>
+                                    <TextBlock Margin="0,8,0,0" FontSize="12">
+                                        <Run Text="Captured data: " FontWeight="SemiBold"
+                                             Foreground="{StaticResource CanonnTextBrightBrush}"/>
+                                        <Hyperlink NavigateUri="https://docs.google.com/spreadsheets/d/1xVrR5bprokc0SBOYz_QDI1eSBUMySSqbpxto1bA6Ebs/edit?gid=864619879#gid=864619879" RequestNavigate="Hyperlink_RequestNavigate">Jet Cone Length measurement spreadsheet (Lab Results)</Hyperlink>
+                                    </TextBlock>
+                                </StackPanel>
+                            </Border>
+
+                            <Border Background="{StaticResource CanonnSurface2Brush}" BorderBrush="{StaticResource CanonnBorderBrush}"
+                                    BorderThickness="1" Padding="14" Margin="0,16,0,0">
+                                <StackPanel>
+                                    <TextBlock Text="Long Exposure" FontWeight="SemiBold" FontSize="14"
+                                               Foreground="{StaticResource CanonnTextBrightBrush}"/>
+                                    <TextBlock Margin="0,6,0,0" TextWrapping="Wrap" FontSize="12" LineHeight="18"
+                                               Foreground="{StaticResource CanonnTextMutedBrush}"
+                                               Text="Stacks every frame of a video into a single still image using one of six blending modes - Average, Maximum, Minimum, Max Minus Min, Motion Variance, or Motion Blur - producing effects like star trails or motion heatmaps rather than a measurement. Not a logged data point; it's for turning ordinary flight or orbit footage into a striking single image. Uncheck any variants you don't need to skip computing them and speed up generation."/>
+                                </StackPanel>
+                            </Border>
+
+                            <Border Background="{StaticResource CanonnSurface2Brush}" BorderBrush="{StaticResource CanonnBorderBrush}"
+                                    BorderThickness="1" Padding="14" Margin="0,16,0,0">
+                                <StackPanel>
+                                    <TextBlock Text="Slit Scan" FontWeight="SemiBold" FontSize="14"
+                                               Foreground="{StaticResource CanonnTextBrightBrush}"/>
+                                    <TextBlock Margin="0,6,0,0" TextWrapping="Wrap" FontSize="12" LineHeight="18"
+                                               Foreground="{StaticResource CanonnTextMutedBrush}"
+                                               Text="Builds a single image by sampling a thin strip from every frame and laying those strips side by side in time order, so motion crossing the strip turns into diagonal or curved streaks instead of a normal photo. Sliders control the strip's angle, position, width, and motion - fixed, sweeping, or orbiting a center point for a spiral/tunnel look - previewed live before you generate the final image. Like Long Exposure, it produces a stylized image rather than a logged measurement."/>
+                                </StackPanel>
+                            </Border>
+
+                            <Border Background="{StaticResource CanonnSurface2Brush}" BorderBrush="{StaticResource CanonnBorderBrush}"
+                                    BorderThickness="1" Padding="14" Margin="0,16,0,0">
+                                <StackPanel>
+                                    <TextBlock Text="Configuration" FontWeight="SemiBold" FontSize="14"
+                                               Foreground="{StaticResource CanonnTextBrightBrush}"/>
+                                    <TextBlock Margin="0,6,0,0" TextWrapping="Wrap" FontSize="12" LineHeight="18"
+                                               Foreground="{StaticResource CanonnTextMutedBrush}"
+                                               Text="Settings shared across every mode: whether the app watches your Elite Dangerous journal folder to auto-fill your commander name and current system, how renamed library videos get organized into folders, and an optional Claude API key used only as a fallback for Jet Cone Length's distance reading."/>
+                                </StackPanel>
+                            </Border>
+
+                            <StackPanel Orientation="Horizontal" Margin="0,20,0,0">
+                                <TextBlock Text="Project home: " FontWeight="SemiBold"
                                            Foreground="{StaticResource CanonnTextBrightBrush}"/>
-                                <TextBlock x:Name="VersionText" FontSize="13"
-                                           Foreground="{StaticResource CanonnTextMutedBrush}" Margin="0,2,0,0"/>
+                                <TextBlock>
+                                    <Hyperlink NavigateUri="https://canonn.science/" RequestNavigate="Hyperlink_RequestNavigate">canonn.science</Hyperlink>
+                                </TextBlock>
+                            </StackPanel>
+
+                            <StackPanel Orientation="Horizontal" Margin="0,8,0,20">
+                                <TextBlock Text="Source &amp; releases: " FontWeight="SemiBold"
+                                           Foreground="{StaticResource CanonnTextBrightBrush}"/>
+                                <TextBlock>
+                                    <Hyperlink NavigateUri="https://github.com/canonn-science/VideoAnalysis" RequestNavigate="Hyperlink_RequestNavigate">github.com/canonn-science/VideoAnalysis</Hyperlink>
+                                </TextBlock>
                             </StackPanel>
                         </StackPanel>
-
-                        <TextBlock Margin="0,20,0,0" TextWrapping="Wrap" LineHeight="20"
-                                   Foreground="{StaticResource CanonnTextBrush}"
-                                   Text="Video Analysis Lab measures how fast a planetary ring or asteroid belt is rotating in Elite Dangerous. It estimates the rotation period from orbital mechanics, tells you how long a video to record to confirm it, and then measures the actual period from that recording - producing a logged data point for Canonn's citizen-science ring-rotation project."/>
-
-                        <StackPanel Orientation="Horizontal" Margin="0,20,0,0">
-                            <TextBlock Text="Project home: " FontWeight="SemiBold"
-                                       Foreground="{StaticResource CanonnTextBrightBrush}"/>
-                            <TextBlock>
-                                <Hyperlink NavigateUri="https://canonn.science/" RequestNavigate="Hyperlink_RequestNavigate">canonn.science</Hyperlink>
-                            </TextBlock>
-                        </StackPanel>
-
-                        <StackPanel Orientation="Horizontal" Margin="0,8,0,0">
-                            <TextBlock Text="Source &amp; releases: " FontWeight="SemiBold"
-                                       Foreground="{StaticResource CanonnTextBrightBrush}"/>
-                            <TextBlock>
-                                <Hyperlink NavigateUri="https://github.com/canonn-science/VideoAnalysis" RequestNavigate="Hyperlink_RequestNavigate">github.com/canonn-science/VideoAnalysis</Hyperlink>
-                            </TextBlock>
-                        </StackPanel>
-                    </StackPanel>
-                </Grid>
+                    </Grid>
+                </ScrollViewer>
             </TabItem>
         </TabControl>
         </Grid>
