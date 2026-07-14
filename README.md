@@ -12,7 +12,7 @@ Every mode reads from the same video library panel on the left instead of having
 
 ### Matching a video to its system
 
-When you upload a video, the app looks for a system name in the leading words of its filename - e.g. `Aurorae AB 3 A Ring.mp4` matches the system Aurorae, since ring and station names in Elite Dangerous start with the system name. This is the same convention the app itself uses when it offers to rename a file after analysis. If the filename doesn't match anything (a screen recorder's default name, for example), just search for the system by hand in the upload prompt.
+When you upload a video, the app looks for a system name in the leading words of its filename - e.g. `Aurorae AB 3 A Ring.mp4` matches the system Aurorae, since ring and station names in Elite Dangerous start with the system name. This is the same convention the app itself uses when it offers to rename a file after analysis. If the filename doesn't match anything, the app can also try to infer the system from your Elite Dangerous journal history (when journal monitoring is enabled); otherwise, search for the system by hand in the upload prompt.
 
 ## Modes
 
