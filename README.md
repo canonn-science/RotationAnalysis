@@ -8,7 +8,7 @@ Elite Dangerous explorers recording or already holding flight footage for Canonn
 
 ## The video library
 
-Every mode reads from the same video library panel on the left instead of having its own file picker, so a video you tag once is ready for any mode. Click **Upload Video…** to add a file; a prompt lets you confirm or search for the system (and body/ring/station) it was recorded at. The library only stores a reference to the file's location - it never copies or moves the video - so an entry shows as missing if the file is later moved, renamed, or deleted outside the app.
+Every mode reads from the same video library panel on the left instead of having its own file picker, so a video you tag once is ready for any mode. Click **Upload Video…** to add a file; a prompt lets you confirm or search for the system (and body/ring/station) it was recorded at. The library stores a reference to the file's location instead of copying videos into an app folder; if you accept the suggested rename in the upload dialog, the app may rename or move the file (depending on your Configuration settings). An entry shows as missing if the file is later moved, renamed, or deleted outside the app.
 
 ### Matching a video to its system
 
