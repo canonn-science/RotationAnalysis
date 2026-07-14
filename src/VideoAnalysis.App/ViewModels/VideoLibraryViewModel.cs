@@ -139,7 +139,7 @@ public sealed class VideoLibraryViewModel : ObservableObject
         VideoLibraryEntryViewModel rowVm;
         if (existing is not null)
         {
-            rowVm = Entries.FirstOrDefault(e => e.Id == existing.Id) ?? new VideoLibraryEntryViewModel(existing, Select);
+            rowVm = Entries.FirstOrDefault(e => e.Id == existing.Id) ?? new VideoLibraryEntryViewModel(existing, Select, RequestRemove);
         }
         else
         {
