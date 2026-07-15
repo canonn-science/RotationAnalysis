@@ -8,6 +8,7 @@ public enum LongExposureVariant
     MaxMinusMin,
     MotionVariance,
     MotionBlur,
+    ChronologicalTrails,
 }
 
 /// <summary>Which variants <see cref="LongExposureProcessor.GenerateAsync"/> should actually
@@ -23,7 +24,8 @@ public enum LongExposureVariants
     MaxMinusMin = 1 << 3,
     MotionVariance = 1 << 4,
     MotionBlur = 1 << 5,
-    All = Average | Maximum | Minimum | MaxMinusMin | MotionVariance | MotionBlur,
+    ChronologicalTrails = 1 << 6,
+    All = Average | Maximum | Minimum | MaxMinusMin | MotionVariance | MotionBlur | ChronologicalTrails,
 }
 
 public sealed class LongExposureResult
@@ -37,6 +39,7 @@ public sealed class LongExposureResult
     public byte[]? MaxMinusMinPng { get; init; }
     public byte[]? MotionVariancePng { get; init; }
     public byte[]? MotionBlurPng { get; init; }
+    public byte[]? ChronologicalTrailsPng { get; init; }
     public required int FrameCount { get; init; }
 
     /// <summary>Every variant that was actually generated, paired with a display name, in the
@@ -53,6 +56,7 @@ public sealed class LongExposureResult
                 (LongExposureVariant.MaxMinusMin, "Max Minus Min", MaxMinusMinPng),
                 (LongExposureVariant.MotionVariance, "Motion Variance", MotionVariancePng),
                 (LongExposureVariant.MotionBlur, "Motion Blur", MotionBlurPng),
+                (LongExposureVariant.ChronologicalTrails, "Chronological Trails", ChronologicalTrailsPng),
             };
 
             var results = new List<(LongExposureVariant, string, byte[])>();

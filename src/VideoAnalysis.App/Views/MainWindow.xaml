@@ -590,9 +590,14 @@
                                     <Run FontWeight="SemiBold" Foreground="{StaticResource CanonnTextBrightBrush}" Text="Motion Variance"/><Run Text=" - a heatmap of how much each pixel fluctuated over time: moving regions light up, static background goes black."/>
                                 </TextBlock>
                             </CheckBox>
-                            <CheckBox IsChecked="{Binding IncludeMotionBlur, Mode=TwoWay}">
+                            <CheckBox Margin="0,0,0,10" IsChecked="{Binding IncludeMotionBlur, Mode=TwoWay}">
                                 <TextBlock TextWrapping="Wrap" Foreground="{StaticResource CanonnTextBrush}">
                                     <Run FontWeight="SemiBold" Foreground="{StaticResource CanonnTextBrightBrush}" Text="Motion Blur"/><Run Text=" - a fading trail effect where recent motion dominates but older bright spots fade out, rather than persisting forever like Maximum's trails."/>
+                                </TextBlock>
+                            </CheckBox>
+                            <CheckBox IsChecked="{Binding IncludeChronologicalTrails, Mode=TwoWay}">
+                                <TextBlock TextWrapping="Wrap" Foreground="{StaticResource CanonnTextBrush}">
+                                    <Run FontWeight="SemiBold" Foreground="{StaticResource CanonnTextBrightBrush}" Text="Chronological Trails"/><Run Text=" - colors a brightest-wins (luminance) trail by when each point was captured, sweeping blue (early) to red (late), so motion direction and timing are visible at a glance."/>
                                 </TextBlock>
                             </CheckBox>
                         </StackPanel>
@@ -881,7 +886,7 @@
                                                Foreground="{StaticResource CanonnTextBrightBrush}"/>
                                     <TextBlock Margin="0,6,0,0" TextWrapping="Wrap" FontSize="12" LineHeight="18"
                                                Foreground="{StaticResource CanonnTextMutedBrush}"
-                                               Text="Stacks every frame of a video into a single still image using one of six blending modes - Average, Maximum, Minimum, Max Minus Min, Motion Variance, or Motion Blur - producing effects like star trails or motion heatmaps rather than a measurement. Not a logged data point; it's for turning ordinary flight or orbit footage into a striking single image. Uncheck any variants you don't need to skip computing them and speed up generation."/>
+                                               Text="Stacks every frame of a video into a single still image using one of seven blending modes - Average, Maximum, Minimum, Max Minus Min, Motion Variance, Motion Blur, or Chronological Trails - producing effects like star trails or motion heatmaps rather than a measurement. Not a logged data point; it's for turning ordinary flight or orbit footage into a striking single image. Uncheck any variants you don't need to skip computing them and speed up generation."/>
                                 </StackPanel>
                             </Border>
 

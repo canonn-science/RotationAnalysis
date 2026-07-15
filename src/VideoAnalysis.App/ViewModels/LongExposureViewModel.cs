@@ -25,6 +25,7 @@ public sealed class LongExposureViewModel : ObservableObject
     private bool _includeMaxMinusMin = true;
     private bool _includeMotionVariance = true;
     private bool _includeMotionBlur = true;
+    private bool _includeChronologicalTrails = true;
 
     public string? VideoFilePath
     {
@@ -86,7 +87,7 @@ public sealed class LongExposureViewModel : ObservableObject
         set => SetField(ref _errorMessage, value);
     }
 
-    /// <summary>The most recently generated set of six variants, shown inline in the tab rather
+    /// <summary>The most recently generated set of seven variants, shown inline in the tab rather
     /// than a separate results window - null before the first generation (or after selecting a
     /// different video, since a stale result no longer corresponds to what's loaded).</summary>
     public LongExposureResult? Result
@@ -142,6 +143,12 @@ public sealed class LongExposureViewModel : ObservableObject
         set => SetField(ref _includeMotionBlur, value);
     }
 
+    public bool IncludeChronologicalTrails
+    {
+        get => _includeChronologicalTrails;
+        set => SetField(ref _includeChronologicalTrails, value);
+    }
+
     public LongExposureVariants SelectedVariants
     {
         get
@@ -153,6 +160,7 @@ public sealed class LongExposureViewModel : ObservableObject
             if (IncludeMaxMinusMin) variants |= LongExposureVariants.MaxMinusMin;
             if (IncludeMotionVariance) variants |= LongExposureVariants.MotionVariance;
             if (IncludeMotionBlur) variants |= LongExposureVariants.MotionBlur;
+            if (IncludeChronologicalTrails) variants |= LongExposureVariants.ChronologicalTrails;
             return variants;
         }
     }

@@ -39,7 +39,7 @@ Measures the length of a neutron star or white dwarf's jet cone. Fly straight to
 
 ### Long Exposure
 
-Stacks every frame of a video into a single still image using one of six blending modes - Average, Maximum, Minimum, Max Minus Min, Motion Variance, or Motion Blur - producing effects like star trails or motion heatmaps. Not a logged measurement; it's for turning ordinary flight or orbit footage into a striking single image, saved to disk rather than a CSV row.
+Stacks every frame of a video into a single still image using one of seven blending modes - Average, Maximum, Minimum, Max Minus Min, Motion Variance, Motion Blur, or Chronological Trails - producing effects like star trails or motion heatmaps. Not a logged measurement; it's for turning ordinary flight or orbit footage into a striking single image, saved to disk rather than a CSV row.
 
 ### Slit Scan
 

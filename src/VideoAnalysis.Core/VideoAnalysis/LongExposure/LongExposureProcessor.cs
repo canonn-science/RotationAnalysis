@@ -11,7 +11,9 @@ namespace VideoAnalysis.Core.VideoAnalysis.LongExposure;
 /// distinct from Motion Variance (which is a static-vs-moving heatmap, not a blur render): an
 /// exponential moving average across frames, producing a comet-trail/light-trail look where
 /// recent frames dominate but older bright spots fade rather than persisting forever the way
-/// Maximum's per-pixel brightest-wins trails do.
+/// Maximum's per-pixel brightest-wins trails do. Adds a seventh "Chronological Trails" variant on
+/// top of Maximum's own per-pixel rule: instead of keeping each pixel's original color, it
+/// recolors the brightest-wins trail by *when* each point was captured (blue = early, red = late).
 /// </summary>
 public static class LongExposureProcessor
 {
@@ -43,6 +45,7 @@ public static class LongExposureProcessor
         var needAverage = (selectedVariants & LongExposureVariants.Average) != LongExposureVariants.None;
         var needMotionBlur = (selectedVariants & LongExposureVariants.MotionBlur) != LongExposureVariants.None;
         var needMotionVariance = (selectedVariants & LongExposureVariants.MotionVariance) != LongExposureVariants.None;
+        var needChronoTrails = (selectedVariants & LongExposureVariants.ChronologicalTrails) != LongExposureVariants.None;
 
         return Task.Run(() =>
         {
@@ -85,6 +88,19 @@ public static class LongExposureProcessor
 
 using var motionSum = needMotionVariance ? Mat.Zeros(size, MatType.CV_64FC1).ToMat() : new Mat();
 using var motionSqSum = needMotionVariance ? Mat.Zeros(size, MatType.CV_64FC1).ToMat() : new Mat();
+
+            // Grayscale "brightest wins" accumulator (by BGR-to-GRAY luminance), plus a parallel map
+            // recording the 1-based frame index each pixel's max was (most recently) set from -
+            // together these let the final image recolor the trail by *when* each point on it was
+            // captured instead of by the pixel's original color.
+            using var trailMaxGray = new Mat();
+            if (needChronoTrails)
+            {
+                Cv2.CvtColor(firstFrame, trailMaxGray, ColorConversionCodes.BGR2GRAY);
+            }
+            // Starts at 1 (not 0) to match trailMaxGray's initial content: both describe "frame 1
+            // is the brightest seen so far" until a later frame overtakes a given pixel.
+            using var trailTimeMap = needChronoTrails ? Mat.Ones(size, MatType.CV_32FC1).ToMat() : new Mat();
 
             int count = 1;
             using var frame = new Mat();
@@ -129,6 +145,16 @@ using var motionSqSum = needMotionVariance ? Mat.Zeros(size, MatType.CV_64FC1).T
                     Cv2.Multiply(diffDouble, diffDouble, diffSquared);
                     Cv2.Add(motionSqSum, diffSquared, motionSqSum);
                     gray.CopyTo(prevGray);
+                }
+
+                if (needChronoTrails)
+                {
+                    using var gray = new Mat();
+                    Cv2.CvtColor(frame, gray, ColorConversionCodes.BGR2GRAY);
+                    using var brighterMask = new Mat();
+                    Cv2.Compare(gray, trailMaxGray, brighterMask, CmpTypes.GT);
+                    trailTimeMap.SetTo(new Scalar(count + 1), brighterMask);
+                    gray.CopyTo(trailMaxGray, brighterMask);
                 }
 
                 count++;
@@ -179,7 +205,14 @@ using var motionSqSum = needMotionVariance ? Mat.Zeros(size, MatType.CV_64FC1).T
                 motionBlurPng = Encode(motionBlurFrame);
             }
 
-            var finalPreviewBytes = averagePng ?? maximumPng ?? minimumPng ?? motionBlurPng ?? motionVariancePng ?? maxMinusMinPng;
+            byte[]? chronologicalTrailsPng = null;
+            if (needChronoTrails)
+            {
+                using var chronoImage = BuildChronologicalTrailsImage(trailMaxGray, trailTimeMap, count);
+                chronologicalTrailsPng = Encode(chronoImage);
+            }
+
+            var finalPreviewBytes = averagePng ?? maximumPng ?? minimumPng ?? motionBlurPng ?? motionVariancePng ?? maxMinusMinPng ?? chronologicalTrailsPng;
             progress?.Report(new VideoAnalysisProgress(VideoAnalysisStage.Done, 100, "Done", PreviewImageBytes: finalPreviewBytes));
 
             return new LongExposureResult
@@ -190,6 +223,7 @@ using var motionSqSum = needMotionVariance ? Mat.Zeros(size, MatType.CV_64FC1).T
                 MaxMinusMinPng = maxMinusMinPng,
                 MotionVariancePng = motionVariancePng,
                 MotionBlurPng = motionBlurPng,
+                ChronologicalTrailsPng = chronologicalTrailsPng,
                 FrameCount = count,
             };
         }, ct);
@@ -252,6 +286,38 @@ using var motionSqSum = needMotionVariance ? Mat.Zeros(size, MatType.CV_64FC1).T
         colorized.SetTo(Scalar.All(0), zeroMask);
 
         return colorized;
+    }
+
+    /// <summary>Recolors the grayscale "brightest wins" trail (<paramref name="maxGray"/> uses
+    /// BGR-to-GRAY luminance comparisons) by when each point on it was captured: hue sweeps blue (early
+    /// frames) to red (late frames) - a "cool to warm" progression rather than a full rainbow, so
+    /// early-vs-late reads intuitively and there's no wrap-around back to a repeated color -
+    /// while brightness carries over as HSV Value. Pixels that were never overtaken from their
+    /// first-frame level stay at whatever brightness that was; since space backgrounds are
+    /// near-black, they render as black regardless of hue, the same "background stays dark" look
+    /// Motion Variance gets from its explicit zero mask, just for free here.</summary>
+    private static Mat BuildChronologicalTrailsImage(Mat maxGray, Mat timeMap, int totalFrameCount)
+    {
+        const double startHue = 120.0; // blue
+        const double endHue = 0.0; // red
+
+        var denominator = Math.Max(totalFrameCount - 1, 1);
+        using var normalizedTime = new Mat();
+        Cv2.Subtract(timeMap, new Scalar(1.0), normalizedTime); // 1-based frame indices -> 0-based
+        normalizedTime.ConvertTo(normalizedTime, MatType.CV_32FC1, 1.0 / denominator); // -> 0..1
+
+        using var hueFloat = new Mat();
+        Cv2.Subtract(new Scalar(1.0), normalizedTime, hueFloat); // invert so time=0 -> 1, time=1 -> 0
+        using var hue = new Mat();
+        hueFloat.ConvertTo(hue, MatType.CV_8UC1, (startHue - endHue) / 1.0, endHue);
+
+        using var saturation = new Mat(maxGray.Size(), MatType.CV_8UC1, Scalar.All(255));
+        using var hsv = new Mat();
+        Cv2.Merge(new[] { hue, saturation, maxGray }, hsv);
+
+        var bgr = new Mat();
+        Cv2.CvtColor(hsv, bgr, ColorConversionCodes.HSV2BGR);
+        return bgr;
     }
 
     private static byte[] Encode(Mat image)
