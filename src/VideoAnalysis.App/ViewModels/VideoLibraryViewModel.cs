@@ -252,34 +252,55 @@ public sealed class VideoLibraryViewModel : ObservableObject
     }
 
     /// <summary>Deselecting the entry above asks its <c>MediaElement</c> to let go of the file, but
-    /// WPF's underlying media pipeline releases the OS file handle on its own background thread -
-    /// <c>Close()</c>/<c>Source = null</c> can return before that handle is actually freed, so a
-    /// delete attempted immediately afterward can still find the file locked even though the app
-    /// is already in the process of releasing it. Retrying briefly absorbs that lag instead of
-    /// surfacing a spurious "still open" failure for something the app itself is closing.</summary>
+    /// WPF's underlying media pipeline releases the OS file handle on its own background thread, so
+    /// it can still be briefly locked by this same process by the time this runs.
+    /// <see cref="FileSystem.DeleteFile"/>'s recycle-bin delete goes through the Windows Shell,
+    /// which - if the file turns out to still be locked - shows its own blocking "File In Use"
+    /// dialog rather than throwing an exception .NET code can catch and retry. So the file has to
+    /// be confirmed actually unlocked *before* ever calling into the shell delete, rather than
+    /// retrying the delete itself afterward.</summary>
     private static async Task<bool> TryDeleteFileWithRetryAsync(string filePath)
     {
-        const int maxAttempts = 10;
+        await WaitUntilUnlockedAsync(filePath).ConfigureAwait(true);
 
-        for (var attempt = 1; attempt <= maxAttempts; attempt++)
+        try
+        {
+            FileSystem.DeleteFile(filePath, UIOption.OnlyErrorDialogs, RecycleOption.SendToRecycleBin);
+            return true;
+        }
+        catch (Exception ex)
+        {
+            AppLog.LogError("VideoLibraryRemove", ex);
+            return false;
+        }
+    }
+
+    /// <summary>Polls for exclusive access to <paramref name="filePath"/> - the only reliable way
+    /// to know nothing (including this same process's own just-closed <c>MediaElement</c>) still
+    /// has it open. Gives up after ~2 seconds and lets the caller proceed anyway; if something else
+    /// entirely still has the file open at that point, the shell's own "File In Use" dialog is a
+    /// reasonable fallback rather than a silent failure.</summary>
+    private static async Task WaitUntilUnlockedAsync(string filePath)
+    {
+        const int maxAttempts = 15;
+
+        for (var attempt = 0; attempt < maxAttempts; attempt++)
         {
             try
             {
-                FileSystem.DeleteFile(filePath, UIOption.OnlyErrorDialogs, RecycleOption.SendToRecycleBin);
-                return true;
+                using var stream = File.Open(filePath, FileMode.Open, FileAccess.Read, FileShare.None);
+                return;
             }
-            catch (IOException) when (attempt < maxAttempts)
+            catch (IOException)
             {
                 await Task.Delay(150).ConfigureAwait(true);
             }
-            catch (Exception ex)
+            catch (Exception)
             {
-                AppLog.LogError("VideoLibraryRemove", ex);
-                return false;
+                // Not a sharing violation (e.g. permissions) - waiting longer won't help.
+                return;
             }
         }
-
-        return false;
     }
 
     /// <summary>Updates the stored path after an in-place rename (e.g. the ring-rename flow),
