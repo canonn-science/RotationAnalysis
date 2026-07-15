@@ -225,7 +225,8 @@ public sealed class RecordingFolderMonitor : IDisposable
     private static List<string> NormalizeExtensions(IEnumerable<string> extensions) =>
         extensions
             .Where(e => !string.IsNullOrWhiteSpace(e))
-            .Select(e => (e.StartsWith('.') ? e : "." + e).Trim().ToLowerInvariant())
+            .Select(e => e.Trim())
+            .Select(e => (e.StartsWith('.') ? e : "." + e).ToLowerInvariant())
             .ToList();
 
     public void Dispose() => Stop();
