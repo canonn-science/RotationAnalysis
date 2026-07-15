@@ -1087,10 +1087,7 @@ else
             return;
         }
 
-        var resultsWindow = new LongExposureResultsWindow(
-            new[] { ("Slit Scan", result.ImagePng) },
-            Path.GetFileNameWithoutExtension(videoPath),
-            null)
+        var resultsWindow = new SlitScanResultWindow(result.ImagePng, Path.GetFileNameWithoutExtension(videoPath))
         { Owner = this };
         resultsWindow.ShowDialog();
     }
