@@ -73,8 +73,8 @@ public static class HorizontalStarTracker
                 ? $" of the estimated {FormatDuration(estimatedPeriodSeconds.Value)} rotation period"
                 : "";
             throw new InvalidOperationException(
-                $"This video is only {FormatDuration(durationSeconds)} long, which is too short for a reliable rotation reading{periodClause}. " +
-                $"Record at least {FormatDuration(minReliableDurationSeconds)} and try again.");
+                $"This video is only {FormatDuration(Math.Ceiling(durationSeconds))} long, which is too short for a reliable rotation reading{periodClause}. " +
+                $"Record at least {FormatDuration(Math.Ceiling(minReliableDurationSeconds))} and try again.");
         }
 
         int horizonCutoff = (int)(frameSize.Height * horizonFraction);
