@@ -11,7 +11,9 @@ namespace VideoAnalysis.Core.VideoAnalysis.LongExposure;
 /// distinct from Motion Variance (which is a static-vs-moving heatmap, not a blur render): an
 /// exponential moving average across frames, producing a comet-trail/light-trail look where
 /// recent frames dominate but older bright spots fade rather than persisting forever the way
-/// Maximum's per-pixel brightest-wins trails do.
+/// Maximum's per-pixel brightest-wins trails do. Adds a seventh "Chronological Trails" variant on
+/// top of Maximum's own per-pixel rule: instead of keeping each pixel's original color, it
+/// recolors the brightest-wins trail by *when* each point was captured (blue = early, red = late).
 /// </summary>
 public static class LongExposureProcessor
 {

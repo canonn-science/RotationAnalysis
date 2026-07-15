@@ -87,7 +87,7 @@ public sealed class LongExposureViewModel : ObservableObject
         set => SetField(ref _errorMessage, value);
     }
 
-    /// <summary>The most recently generated set of six variants, shown inline in the tab rather
+    /// <summary>The most recently generated set of seven variants, shown inline in the tab rather
     /// than a separate results window - null before the first generation (or after selecting a
     /// different video, since a stale result no longer corresponds to what's loaded).</summary>
     public LongExposureResult? Result
