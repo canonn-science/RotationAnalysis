@@ -590,9 +590,14 @@
                                     <Run FontWeight="SemiBold" Foreground="{StaticResource CanonnTextBrightBrush}" Text="Motion Variance"/><Run Text=" - a heatmap of how much each pixel fluctuated over time: moving regions light up, static background goes black."/>
                                 </TextBlock>
                             </CheckBox>
-                            <CheckBox IsChecked="{Binding IncludeMotionBlur, Mode=TwoWay}">
+                            <CheckBox Margin="0,0,0,10" IsChecked="{Binding IncludeMotionBlur, Mode=TwoWay}">
                                 <TextBlock TextWrapping="Wrap" Foreground="{StaticResource CanonnTextBrush}">
                                     <Run FontWeight="SemiBold" Foreground="{StaticResource CanonnTextBrightBrush}" Text="Motion Blur"/><Run Text=" - a fading trail effect where recent motion dominates but older bright spots fade out, rather than persisting forever like Maximum's trails."/>
+                                </TextBlock>
+                            </CheckBox>
+                            <CheckBox IsChecked="{Binding IncludeChronologicalTrails, Mode=TwoWay}">
+                                <TextBlock TextWrapping="Wrap" Foreground="{StaticResource CanonnTextBrush}">
+                                    <Run FontWeight="SemiBold" Foreground="{StaticResource CanonnTextBrightBrush}" Text="Chronological Trails"/><Run Text=" - colors Maximum's brightest-wins trail by when each point was captured, sweeping blue (early) to red (late), so motion direction and timing are visible at a glance."/>
                                 </TextBlock>
                             </CheckBox>
                         </StackPanel>
