@@ -618,7 +618,7 @@
                     <Grid Grid.Row="5" Margin="0,16,0,0" Visibility="{Binding HasResult, Converter={StaticResource BoolToVisibility}}">
                         <Grid.RowDefinitions>
                             <RowDefinition Height="Auto"/>
-                            <RowDefinition Height="480"/>
+                            <RowDefinition MinHeight="480"/>
                             <RowDefinition Height="Auto"/>
                         </Grid.RowDefinitions>
 
