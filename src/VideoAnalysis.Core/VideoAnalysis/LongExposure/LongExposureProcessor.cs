@@ -288,8 +288,8 @@ using var motionSqSum = needMotionVariance ? Mat.Zeros(size, MatType.CV_64FC1).T
         return colorized;
     }
 
-    /// <summary>Recolors the grayscale "brightest wins" trail (<paramref name="maxGray"/>, same
-    /// per-pixel rule as Maximum) by when each point on it was captured: hue sweeps blue (early
+    /// <summary>Recolors the grayscale "brightest wins" trail (<paramref name="maxGray"/> uses
+    /// BGR-to-GRAY luminance comparisons) by when each point on it was captured: hue sweeps blue (early
     /// frames) to red (late frames) - a "cool to warm" progression rather than a full rainbow, so
     /// early-vs-late reads intuitively and there's no wrap-around back to a repeated color -
     /// while brightness carries over as HSV Value. Pixels that were never overtaken from their
