@@ -155,10 +155,32 @@ public static class SlitScanProcessor
             // still takes a frame.Height-tall strip (so all slits stay the same height for
             // compositing), just centered on that recentered point rather than pinned to y=0.
             double radians = rotationAngleDegrees * Math.PI / 180.0;
-            double cos = Math.Abs(Math.Cos(radians));
-            double sin = Math.Abs(Math.Sin(radians));
-            int boundingWidth = Math.Max(1, (int)Math.Ceiling(frame.Height * sin + frame.Width * cos));
-            int boundingHeight = Math.Max(1, (int)Math.Ceiling(frame.Height * cos + frame.Width * sin));
+            double cos = Math.Cos(radians);
+            double sin = Math.Sin(radians);
+
+            // Compute symmetric bounds around the chosen rotation center so the center can be
+            // placed at the new canvas midpoint without clipping, even when the pivot is off-center.
+            var corners = new[]
+            {
+                new Point2f(0, 0),
+                new Point2f(frame.Width, 0),
+                new Point2f(frame.Width, frame.Height),
+                new Point2f(0, frame.Height),
+            };
+
+            double maxAbsX = 0, maxAbsY = 0;
+            foreach (var c in corners)
+            {
+                double dx = c.X - center.X;
+                double dy = c.Y - center.Y;
+                double rx = dx * cos - dy * sin;
+                double ry = dx * sin + dy * cos;
+                maxAbsX = Math.Max(maxAbsX, Math.Abs(rx));
+                maxAbsY = Math.Max(maxAbsY, Math.Abs(ry));
+            }
+
+            int boundingWidth = Math.Max(1, (int)Math.Ceiling(2 * maxAbsX));
+            int boundingHeight = Math.Max(frame.Height, (int)Math.Ceiling(2 * maxAbsY));
 
             using var rotationMatrix = Cv2.GetRotationMatrix2D(center, rotationAngleDegrees, 1.0);
             rotationMatrix.Set(0, 2, rotationMatrix.Get<double>(0, 2) + boundingWidth / 2.0 - center.X);
