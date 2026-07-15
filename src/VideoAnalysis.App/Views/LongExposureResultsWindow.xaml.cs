@@ -8,7 +8,7 @@ using VideoAnalysis.Core.VideoAnalysis.LongExposure;
 namespace VideoAnalysis.App.Views;
 
 /// <summary>Shows previews of every generated variation and lets the user save one or all of
-/// them. Reused as-is by Slit Scan, which shares this save workflow per spec.</summary>
+/// them.</summary>
 public partial class LongExposureResultsWindow : Window
 {
     private static readonly string DefaultOutputRoot = Path.Combine(
@@ -17,9 +17,6 @@ public partial class LongExposureResultsWindow : Window
     private readonly string _systemName;
     private readonly string? _bodyOrStationName;
 
-    /// <summary>Generic over any labeled set of generated images - Long Exposure passes its six
-    /// variants, Slit Scan (which reuses this window's save workflow as-is per spec) passes its
-    /// single output.</summary>
     public LongExposureResultsWindow(IReadOnlyList<(string DisplayName, byte[] Png)> images, string systemName, string? bodyOrStationName)
     {
         InitializeComponent();

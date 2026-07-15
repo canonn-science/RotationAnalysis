@@ -7,10 +7,9 @@ namespace VideoAnalysis.Core.VideoAnalysis.SlitScan;
 /// strips side-by-side in scan order, so the output's horizontal axis becomes time instead of
 /// space - motion across the slit shows up as diagonal/curved streaks. The slit's position within
 /// each frame can stay fixed (classic time-slice), sweep between two positions, or orbit a center
-/// point (spiral/tunnel), per <see cref="SlitScanParameters.MotionMode"/>. Reuses the same
-/// selection/save workflow as Long Exposure per spec (see <c>LongExposureResultsWindow</c>, which
-/// both modes share), but this is a distinct algorithm with its own exposed parameters rather
-/// than a Long Exposure variant.
+/// point (spiral/tunnel), per <see cref="SlitScanParameters.MotionMode"/>. A distinct algorithm
+/// with its own exposed parameters rather than a Long Exposure variant, and (unlike Long
+/// Exposure's several output variants) always produces a single output image.
 /// </summary>
 public static class SlitScanProcessor
 {
