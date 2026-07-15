@@ -77,13 +77,15 @@ public class SlitScanExtractSlitTests
         Assert.True(MinGrayValue(slit) > 0, $"slit at p={p} (angle {p * 360}deg) contains WarpAffine padding");
     }
 
-    [Fact]
-    public void ExtractSlit_RotationalMode_HeightIsConstantAcrossAngles()
+    [Theory]
+    [InlineData(192, 108)]
+    [InlineData(108, 192)]
+    public void ExtractSlit_RotationalMode_HeightIsConstantAcrossAngles(int width, int height)
     {
         // Composite() requires every slit to share the first slit's height; the rotated
         // bounding box's own height varies continuously with angle, so ExtractSlit must always
         // crop back down to frame.Height regardless of the current rotation angle.
-        using var frame = CreateFrame();
+        using var frame = CreateFrame(width, height);
         var parameters = new SlitScanParameters
         {
             MotionMode = SlitScanMotionMode.Rotational,
@@ -99,4 +101,3 @@ public class SlitScanExtractSlitTests
             Assert.Equal(expectedHeight!.Value, slit.Height);
         }
     }
-}
