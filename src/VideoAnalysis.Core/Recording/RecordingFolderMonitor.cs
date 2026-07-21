@@ -104,6 +104,35 @@ public sealed class RecordingFolderMonitor : IDisposable
         }
     }
 
+    /// <summary>True if <paramref name="path"/> is currently being polled for completion. Lets a
+    /// caller that just finished showing a modal tagging dialog for a freshly-detected recording
+    /// check whether it already finished (and its <see cref="RecordingCompleted"/> already fired
+    /// to no one, since the library entry didn't exist yet) while the dialog was open.</summary>
+    public bool IsTracking(string path)
+    {
+        lock (_lock)
+        {
+            return _tracked.ContainsKey(path);
+        }
+    }
+
+    /// <summary>Re-keys an in-progress recording's tracked state after the user renames it (e.g.
+    /// via the upload-metadata dialog's rename-to-match option) while it's still being tracked for
+    /// completion. Without this, polling would keep checking the old (now nonexistent) path, see
+    /// it as "vanished", and silently stop tracking without ever raising
+    /// <see cref="RecordingCompleted"/> - leaving the library entry stuck showing "Recording…"
+    /// forever. A no-op if <paramref name="oldPath"/> isn't currently tracked.</summary>
+    public void RenameTrackedFile(string oldPath, string newPath)
+    {
+        lock (_lock)
+        {
+            if (_tracked.Remove(oldPath, out var tracked))
+            {
+                _tracked[newPath] = tracked;
+            }
+        }
+    }
+
     public void Stop()
     {
         lock (_lock)

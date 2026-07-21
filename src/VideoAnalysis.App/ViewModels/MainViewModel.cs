@@ -349,13 +349,10 @@ public sealed class MainViewModel : ObservableObject, IDisposable
     }
 
     /// <summary>Raised (off the UI thread) when the monitor sees a new matching file and
-    /// <see cref="PromptOnNewRecording"/> is on - the view shows a non-blocking notification;
-    /// accepting it should call <see cref="VideoLibraryViewModel.AddPlaceholder"/>.</summary>
-    public event Action<string>? RecordingPromptRequested;
-
-    /// <summary>Raised (off the UI thread) once a recording finishes and its entry still has no
-    /// system tagged - the view shows a non-blocking "tag it now?" notification.</summary>
-    public event Action<VideoLibraryEntryViewModel>? RecordingFinalizedPromptRequested;
+    /// <see cref="PromptOnNewRecording"/> is on - the view brings up the full tag-or-cancel upload
+    /// metadata modal for it immediately, rather than waiting for the recording to finish (a single
+    /// phase in place of the old "add it?" / "tag it now?" two-step).</summary>
+    public event Action<string>? RecordingTagPromptRequested;
 
     private void OnRecordingDetected(string path)
     {
@@ -374,7 +371,7 @@ public sealed class MainViewModel : ObservableObject, IDisposable
             }
             else if (PromptOnNewRecording)
             {
-                RecordingPromptRequested?.Invoke(path);
+                RecordingTagPromptRequested?.Invoke(path);
             }
         }
 
@@ -392,11 +389,6 @@ public sealed class MainViewModel : ObservableObject, IDisposable
             }
 
             await VideoLibrary.MarkRecordingCompleteAsync(entry).ConfigureAwait(true);
-
-            if (string.IsNullOrWhiteSpace(entry.Entry.SystemName))
-            {
-                RecordingFinalizedPromptRequested?.Invoke(entry);
-            }
         }
 
         RunOnUiThread(Apply);
@@ -516,6 +508,11 @@ public sealed class MainViewModel : ObservableObject, IDisposable
     /// <summary>Exposed so the upload metadata modal can reuse the same Spansh client rather than
     /// opening a second one.</summary>
     public SpanshClient SpanshClient => _spanshClient;
+
+    /// <summary>Exposed so the view can re-key or query a still-in-progress recording's tracked
+    /// state around the tag-immediately modal (see <see cref="RecordingTagPromptRequested"/>)
+    /// without routing every interaction through this view model.</summary>
+    public RecordingFolderMonitor RecordingMonitor => _recordingMonitor;
 
     private RingRowViewModel? _selectedRing;
     private string? _selectedBodyName;

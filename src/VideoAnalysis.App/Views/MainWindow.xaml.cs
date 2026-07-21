@@ -38,11 +38,6 @@ public partial class MainWindow : Window
     private CancellationTokenSource? _stationSearchDebounceCts;
     private CancellationTokenSource? _jetConeSearchDebounceCts;
 
-    /// <summary>Currently-open recording notification toasts, most-recent last - used to stack
-    /// simultaneous notifications (e.g. two recordings starting at once) instead of overlapping
-    /// them in the same corner of the screen.</summary>
-    private readonly List<RecordingNotificationWindow> _openNotificationWindows = new();
-
     public MainWindow()
     {
         InitializeComponent();
@@ -57,8 +52,7 @@ public partial class MainWindow : Window
         _viewModel.VideoLibrary.EntrySelected += OnLibraryEntrySelectedForLongExposure;
         _viewModel.VideoLibrary.EntrySelected += OnLibraryEntrySelectedForJetCone;
         _viewModel.AddWatchedFolderRequested += OnAddWatchedFolderRequested;
-        _viewModel.RecordingPromptRequested += OnRecordingPromptRequested;
-        _viewModel.RecordingFinalizedPromptRequested += OnRecordingFinalizedPromptRequested;
+        _viewModel.RecordingTagPromptRequested += OnRecordingTagPromptRequested;
         _viewModel.VideoLibrary.SelectFirstEntryIfAny();
         Closed += (_, _) =>
         {
@@ -371,83 +365,42 @@ public partial class MainWindow : Window
         _viewModel.AddWatchedFolder(dialog.FolderName);
     }
 
-    private void OnRecordingPromptRequested(string path)
-    {
-        var window = new RecordingNotificationWindow(
-            "🔴 Recording started",
-            $"A new recording has been detected in \"{Path.GetDirectoryName(path)}\". Add it to the library?",
-            "Add", "Ignore");
-        window.Decided += choice =>
-        {
-            if (choice == RecordingNotificationChoice.Primary)
-            {
-                _viewModel.VideoLibrary.AddPlaceholder(path);
-            }
-        };
-        ShowNotificationWindow(window);
-    }
-
-    private void OnRecordingFinalizedPromptRequested(VideoLibraryEntryViewModel entry)
-    {
-        var window = new RecordingNotificationWindow(
-            "Recording finished",
-            $"\"{entry.FileName}\" has finished recording. Tag it with a system now?",
-            "Tag Now", "Later");
-        window.Decided += choice =>
-        {
-            if (choice == RecordingNotificationChoice.Primary)
-            {
-                PromptTagFinalizedRecording(entry);
-            }
-        };
-        ShowNotificationWindow(window);
-    }
-
-    /// <summary>Reuses the same metadata modal shown for a manual upload, but applies the result
-    /// onto the already-added placeholder <paramref name="entry"/> instead of creating a new one -
-    /// see <see cref="VideoLibraryViewModel.ApplyMetadataToExistingEntry"/>.</summary>
-    private void PromptTagFinalizedRecording(VideoLibraryEntryViewModel entry)
+    /// <summary>Single-phase replacement for the old "add it?" / "tag it now?" two-step: the
+    /// moment the folder monitor detects a new recording, bring up the same tag-or-cancel upload
+    /// metadata modal used for a manual upload - the modal's own auto-detect (filename, falling
+    /// back to journal history/live location) works just as well against a still-in-progress file
+    /// as a finished one, since the file's creation time is effectively "now" either way.
+    /// Cancelling leaves the file untouched and not in the library, same as the old "Ignore".</summary>
+    private async void OnRecordingTagPromptRequested(string path)
     {
         var metadataViewModel = new VideoUploadMetadataViewModel(_viewModel.SpanshClient, _viewModel.JournalMonitor);
         var metadataWindow = new VideoUploadMetadataWindow(
-            metadataViewModel, entry.FilePath,
+            metadataViewModel, path,
             autoDetectFromFilename: true,
             organizeBySystemFolder: _viewModel.OrganizeRenamedVideosBySystem)
         { Owner = this };
-        if (metadataWindow.ShowDialog() != true || metadataWindow.ResultEntry is not { } metadata)
+        if (metadataWindow.ShowDialog() != true || metadataWindow.ResultEntry is not { } entry)
         {
             return;
         }
 
-        _viewModel.VideoLibrary.ApplyMetadataToExistingEntry(entry, metadata);
-    }
-
-    /// <summary>Shows a non-modal notification toast, stacked above any others already open near
-    /// the bottom-right of the work area, and stops tracking it once closed.</summary>
-    private void ShowNotificationWindow(RecordingNotificationWindow window)
-    {
-        const double margin = 16;
-        var workArea = SystemParameters.WorkArea;
-
-        window.Left = workArea.Right - window.Width - margin;
-        window.Top = workArea.Bottom - margin;
-        window.Loaded += (_, _) =>
+        if (!string.Equals(entry.FilePath, path, StringComparison.OrdinalIgnoreCase))
         {
-            var stackedTop = workArea.Bottom - margin;
-            foreach (var open in _openNotificationWindows)
-            {
-                if (ReferenceEquals(open, window))
-                {
-                    continue;
-                }
-                stackedTop -= open.ActualHeight + margin;
-            }
-            window.Top = stackedTop - window.ActualHeight;
-        };
+            // The rename-to-match option moved the still-recording file - keep the folder
+            // monitor's completion polling pointed at wherever it actually lives now, or it'll
+            // see the old path vanish and silently give up without ever marking this "recording"
+            // done (see RecordingFolderMonitor.RenameTrackedFile's doc for why).
+            _viewModel.RecordingMonitor.RenameTrackedFile(path, entry.FilePath);
+        }
 
-        window.Closed += (_, _) => _openNotificationWindows.Remove(window);
-        _openNotificationWindows.Add(window);
-        window.Show();
+        var addedEntry = _viewModel.VideoLibrary.AddTaggedInProgressRecording(entry);
+
+        if (!_viewModel.RecordingMonitor.IsTracking(entry.FilePath))
+        {
+            // Already finished - and its RecordingCompleted already fired and found no library
+            // entry to apply to, since this one didn't exist yet - while the modal was open.
+            await _viewModel.VideoLibrary.MarkRecordingCompleteAsync(addedEntry);
+        }
     }
 
     private async void StationSystemSearchBox_TextChanged(AutoSuggestBox sender, AutoSuggestBoxTextChangedEventArgs args)
