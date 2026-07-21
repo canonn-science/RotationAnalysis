@@ -784,7 +784,7 @@
                                           IsChecked="{Binding MonitorVideoFolders, Mode=TwoWay}"/>
                                 <TextBlock Margin="24,4,0,0" TextWrapping="Wrap" FontSize="12"
                                            Foreground="{StaticResource CanonnTextMutedBrush}"
-                                           Text="Watches the folders below for new recordings from game capture tools (Steam Game Recording, Windows Game Bar, GeForce NOW, …) and offers to add each one to the library as soon as it starts."/>
+                                           Text="Watches the folders below for new recordings from game capture tools (Steam Game Recording, Windows Game Bar, GeForce NOW, …) and prompts you to tag each one the moment it starts, before it's even finished recording."/>
 
                                 <ItemsControl Margin="0,12,0,0" ItemsSource="{Binding WatchedVideoFolders}"
                                               IsEnabled="{Binding MonitorVideoFolders}">

@@ -183,6 +183,32 @@ public sealed class VideoLibraryViewModel : ObservableObject
         return rowVm;
     }
 
+    /// <summary>Adds a tagged entry for a recording the folder monitor detected that's still in
+    /// progress - the single-phase "tag it immediately" flow's equivalent of <see cref="AddFromUpload"/>.
+    /// Same dedupe-by-path/insert/select shape, and (like <see cref="AddPlaceholder"/>, unlike
+    /// <see cref="AddFromUpload"/>) skips thumbnail generation since the file is still being
+    /// written - <see cref="MarkRecordingCompleteAsync"/> generates the real thumbnail once the
+    /// monitor reports the recording has finished.</summary>
+    public VideoLibraryEntryViewModel AddTaggedInProgressRecording(VideoLibraryEntry entry)
+    {
+        entry.IsRecording = true;
+        var existing = _store.FindByPath(entry.FilePath);
+        VideoLibraryEntryViewModel rowVm;
+        if (existing is not null)
+        {
+            rowVm = Entries.FirstOrDefault(e => e.Id == existing.Id) ?? CreateRowViewModel(existing);
+        }
+        else
+        {
+            var added = _store.Add(entry);
+            rowVm = CreateRowViewModel(added);
+            Entries.Insert(0, rowVm);
+        }
+
+        Select(rowVm);
+        return rowVm;
+    }
+
     /// <summary>Clears the "Recording…" placeholder state and generates the real thumbnail, once
     /// the folder monitor reports the underlying file has stopped growing.</summary>
     public async Task MarkRecordingCompleteAsync(VideoLibraryEntryViewModel entry)
@@ -191,31 +217,6 @@ public sealed class VideoLibraryViewModel : ObservableObject
         entry.Entry.IsRecording = false;
         entry.NotifyEntryChanged();
         await GenerateThumbnailAsync(entry).ConfigureAwait(true);
-    }
-
-    /// <summary>Applies metadata and an in-place rename (the rename already performed by the
-    /// metadata window before calling this) onto an existing entry - used by the "recording
-    /// finished, tag it now" flow, where the video is already in the library as a placeholder
-    /// rather than being newly added. <see cref="AddFromUpload"/>'s dedupe path intentionally
-    /// leaves an already-known entry's metadata untouched, so that path can't be reused here.</summary>
-    public void ApplyMetadataToExistingEntry(VideoLibraryEntryViewModel entry, VideoLibraryEntry metadata)
-    {
-        if (!string.Equals(entry.Entry.FilePath, metadata.FilePath, StringComparison.OrdinalIgnoreCase))
-        {
-            UpdatePath(entry, metadata.FilePath);
-        }
-
-        _store.UpdateMetadata(entry.Id, metadata);
-        entry.Entry.SystemName = metadata.SystemName;
-        entry.Entry.SystemId64 = metadata.SystemId64;
-        entry.Entry.SystemX = metadata.SystemX;
-        entry.Entry.SystemY = metadata.SystemY;
-        entry.Entry.SystemZ = metadata.SystemZ;
-        entry.Entry.BodyName = metadata.BodyName;
-        entry.Entry.RingName = metadata.RingName;
-        entry.Entry.StationName = metadata.StationName;
-        entry.Entry.StationType = metadata.StationType;
-        entry.NotifyEntryChanged();
     }
 
     private void RequestRemove(VideoLibraryEntryViewModel entry) => RemoveRequested?.Invoke(entry);

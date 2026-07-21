@@ -96,6 +96,70 @@ public class RecordingFolderMonitorTests : IDisposable
         Assert.Contains(filePath, completed);
     }
 
+    [Fact]
+    public void IsTracking_TrueWhileTracked_FalseAfterCompletion()
+    {
+        using var monitor = new RecordingFolderMonitor(new[] { ".mp4" }, TimeSpan.FromMilliseconds(50), stableCyclesRequired: 2);
+        var completed = new List<string>();
+        monitor.RecordingCompleted += path => { lock (completed) { completed.Add(path); } };
+
+        monitor.SetWatchedFolders(new[] { _directory });
+
+        var filePath = Path.Combine(_directory, "recording.mp4");
+        File.WriteAllText(filePath, "some initial bytes");
+
+        WaitUntil(() => monitor.IsTracking(filePath));
+        Assert.True(monitor.IsTracking(filePath));
+
+        WaitUntil(() => completed.Count > 0, timeoutMs: 3000);
+        Assert.False(monitor.IsTracking(filePath));
+    }
+
+    [Fact]
+    public void IsTracking_FalseForUnknownPath()
+    {
+        using var monitor = new RecordingFolderMonitor(new[] { ".mp4" }, TimeSpan.FromMilliseconds(50));
+        Assert.False(monitor.IsTracking(Path.Combine(_directory, "never-seen.mp4")));
+    }
+
+    [Fact]
+    public void RenameTrackedFile_CompletionStillFires_UnderTheNewPath()
+    {
+        using var monitor = new RecordingFolderMonitor(new[] { ".mp4" }, TimeSpan.FromMilliseconds(50), stableCyclesRequired: 2);
+        var completed = new List<string>();
+        monitor.RecordingCompleted += path => { lock (completed) { completed.Add(path); } };
+
+        monitor.SetWatchedFolders(new[] { _directory });
+
+        var oldPath = Path.Combine(_directory, "recording.mp4");
+        File.WriteAllText(oldPath, "some initial bytes");
+        WaitUntil(() => monitor.IsTracking(oldPath));
+
+        var newPath = Path.Combine(_directory, "Sol.mp4");
+        File.Move(oldPath, newPath);
+        monitor.RenameTrackedFile(oldPath, newPath);
+
+        Assert.False(monitor.IsTracking(oldPath));
+        Assert.True(monitor.IsTracking(newPath));
+
+        WaitUntil(() => completed.Count > 0, timeoutMs: 3000);
+
+        Assert.Contains(newPath, completed);
+        Assert.DoesNotContain(oldPath, completed);
+    }
+
+    [Fact]
+    public void RenameTrackedFile_UnknownOldPath_IsNoOp()
+    {
+        using var monitor = new RecordingFolderMonitor(new[] { ".mp4" }, TimeSpan.FromMilliseconds(50));
+
+        monitor.RenameTrackedFile(
+            Path.Combine(_directory, "never-tracked.mp4"),
+            Path.Combine(_directory, "renamed.mp4"));
+
+        Assert.False(monitor.IsTracking(Path.Combine(_directory, "renamed.mp4")));
+    }
+
     private static void WaitUntil(Func<bool> condition, int timeoutMs = 2000)
     {
         var deadline = DateTime.UtcNow.AddMilliseconds(timeoutMs);
