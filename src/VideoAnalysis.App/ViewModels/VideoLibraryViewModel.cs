@@ -52,6 +52,15 @@ public sealed class VideoLibraryViewModel : ObservableObject
     /// <summary>Raised whenever the active/selected library video changes.</summary>
     public event Action<VideoLibraryEntryViewModel>? EntrySelected;
 
+    /// <summary>Raised whenever an already-selected entry's tagged system/body/ring or file path
+    /// changes in place - e.g. Ring Rotation's Analyze flow tagging it via
+    /// <see cref="UpdateSystemBodyRing"/>, or an in-place rename via <see cref="UpdatePath"/> -
+    /// without going through <see cref="Select"/>. Every tab that mirrors the current entry
+    /// subscribes to this the same way it subscribes to <see cref="EntrySelected"/>, so tagging (or
+    /// renaming) it in one tab is immediately reflected in every other tab already showing it,
+    /// instead of only ever being visible the next time the entry is (re-)selected.</summary>
+    public event Action<VideoLibraryEntryViewModel>? EntryDataChanged;
+
     /// <summary>Raised when the user clicks an entry's remove button; the view handles the
     /// confirmation prompt (index-only vs. also deleting the file), then calls <see cref="Remove"/>.</summary>
     public event Action<VideoLibraryEntryViewModel>? RemoveRequested;
@@ -311,6 +320,7 @@ public sealed class VideoLibraryViewModel : ObservableObject
         _store.UpdatePath(entry.Id, newPath);
         entry.Entry.FilePath = newPath;
         entry.NotifyEntryChanged();
+        EntryDataChanged?.Invoke(entry);
     }
 
     /// <summary>Tags an entry with a confirmed system/body/ring - e.g. once Ring Rotation's picker
@@ -328,6 +338,7 @@ public sealed class VideoLibraryViewModel : ObservableObject
         entry.Entry.BodyName = bodyName;
         entry.Entry.RingName = ringName;
         entry.NotifyEntryChanged();
+        EntryDataChanged?.Invoke(entry);
     }
 
     public void MarkAnalyzed(VideoLibraryEntryViewModel entry, string tabId)

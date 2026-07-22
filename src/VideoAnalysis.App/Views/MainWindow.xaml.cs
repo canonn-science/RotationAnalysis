@@ -51,6 +51,14 @@ public partial class MainWindow : Window
         _viewModel.VideoLibrary.EntrySelected += OnLibraryEntrySelectedForSlitScan;
         _viewModel.VideoLibrary.EntrySelected += OnLibraryEntrySelectedForLongExposure;
         _viewModel.VideoLibrary.EntrySelected += OnLibraryEntrySelectedForJetCone;
+        // Re-run the same per-tab sync when the active entry's tag/path changes in place (e.g.
+        // Ring Rotation's Analyze flow tagging it, or an in-place rename) instead of only via a
+        // fresh EntrySelected - see VideoLibraryViewModel.EntryDataChanged's doc for why.
+        _viewModel.VideoLibrary.EntryDataChanged += OnLibraryEntrySelectedForRingRotation;
+        _viewModel.VideoLibrary.EntryDataChanged += OnLibraryEntrySelectedForStationRotation;
+        _viewModel.VideoLibrary.EntryDataChanged += OnLibraryEntrySelectedForSlitScan;
+        _viewModel.VideoLibrary.EntryDataChanged += OnLibraryEntrySelectedForLongExposure;
+        _viewModel.VideoLibrary.EntryDataChanged += OnLibraryEntrySelectedForJetCone;
         _viewModel.AddWatchedFolderRequested += OnAddWatchedFolderRequested;
         _viewModel.RecordingTagPromptRequested += OnRecordingTagPromptRequested;
         _viewModel.VideoLibrary.SelectFirstEntryIfAny();

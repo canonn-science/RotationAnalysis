@@ -83,6 +83,7 @@ public sealed class MainViewModel : ObservableObject, IDisposable
         SlitScan = new SlitScanViewModel();
         VideoLibrary = new VideoLibraryViewModel(_videoLibraryStore, () => ShowRecordingBadge);
         VideoLibrary.EntrySelected += OnLibraryEntrySelected;
+        VideoLibrary.EntryDataChanged += OnLibraryEntrySelected;
         _hasClaudeApiKey = _secretStore.TryGetClaudeApiKey(out _);
         _journalMonitor.CommanderNameChanged += OnJournalCommanderNameChanged;
         if (_monitorJournals)
